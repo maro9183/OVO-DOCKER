@@ -248,9 +248,27 @@ window.UI = (() => {
     editingTaskId = null;
   }
 
+  /* ── Confirm Modal ─────────────────────────────────────── */
+  function showConfirm(title, msg, btnText) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('modal-confirm');
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-msg').textContent = msg;
+      
+      const btnYes = document.getElementById('btn-confirm-yes');
+      btnYes.textContent = btnText;
+      
+      btnYes.onclick = () => { overlay.classList.add('hidden'); resolve(true); };
+      document.getElementById('btn-confirm-no').onclick = () => { overlay.classList.add('hidden'); resolve(false); };
+      
+      overlay.classList.remove('hidden');
+    });
+  }
+
   /* ── Delete confirmation ────────────────────────────────── */
-  function confirmDelete(taskId) {
-    if (!confirm('¿Eliminar esta tarea? Esta acción no se puede deshacer.')) return;
+  async function confirmDelete(taskId) {
+    const agreed = await showConfirm('Eliminar Tarea', '¿Eliminar esta tarea? Esta acción no se puede deshacer.', 'Sí, eliminar');
+    if (!agreed) return;
     deleteTask(taskId);
   }
 
@@ -491,7 +509,8 @@ window.UI = (() => {
   }
 
   async function reqDeleteResponsable(id) {
-    if(!confirm('¿Eliminar este responsable?')) return;
+    const agreed = await showConfirm('Eliminar Responsable', '¿Eliminar este responsable?', 'Eliminar');
+    if(!agreed) return;
     try {
       await API.deleteResponsable(id);
       responsables = responsables.filter(x => x.id_resp !== id);
@@ -515,7 +534,8 @@ window.UI = (() => {
   }
 
   async function reqDeleteRecurso(id) {
-    if(!confirm('¿Eliminar este recurso?')) return;
+    const agreed = await showConfirm('Eliminar Recurso', '¿Eliminar este recurso?', 'Eliminar');
+    if(!agreed) return;
     try {
       await API.deleteRecurso(id);
       recursos = recursos.filter(x => x.id_recurso !== id);
@@ -678,7 +698,7 @@ window.UI = (() => {
     if (elName) elName.textContent = user.nombre || 'Usuario';
     if (elEmail) elEmail.textContent = user.email || '';
 
-    if (user.es_admin !== 1) {
+    if (!user.es_admin) {
       document.getElementById('btn-admin-users').style.display = 'none';
       if (!Auth.hasPerm('CREATE')) {
         document.getElementById('btn-new-project').style.display = 'none';
@@ -690,10 +710,9 @@ window.UI = (() => {
   }
 
   function setupUsersAdmin() {
-    document.getElementById('btn-logout').addEventListener('click', () => {
-      if (confirm('¿Estás seguro que deseas cerrar la sesión?')) {
-        Auth.logout();
-      }
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      const agreed = await showConfirm('Cerrar Sesión', '¿Estás seguro que deseas desconectarte?', 'Cerrar sesión');
+      if (agreed) Auth.logout();
     });
 
     const btnAdminUsers = document.getElementById('btn-admin-users');
@@ -781,7 +800,7 @@ window.UI = (() => {
     document.getElementById('user-nombre').value = u.nombre;
     document.getElementById('user-email').value = u.email;
     document.getElementById('user-password').value = '';
-    document.getElementById('user-is-admin').checked = u.es_admin === 1;
+    document.getElementById('user-is-admin').checked = !!u.es_admin;
     document.getElementById('user-form-title').textContent = 'Editar Usuario';
     
     const pUser = (u.permisos || '').split(',');
@@ -793,7 +812,8 @@ window.UI = (() => {
   }
 
   async function deleteUser(id) {
-    if(!confirm('¿Estás seguro de eliminar este usuario?')) return;
+    const agreed = await showConfirm('Eliminar Usuario', '¿Estás seguro de eliminar este usuario?', 'Eliminar cuenta');
+    if (!agreed) return;
     try {
       await API.deleteUser(id);
       toast('Usuario eliminado', 'success');

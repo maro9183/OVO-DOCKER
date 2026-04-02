@@ -759,6 +759,19 @@
   <!-- Toast container -->
   <div id="toast-container" class="toast-container"></div>
 
+  <!-- ══════════════ MODAL DE CONFIRMACIÓN ══════════════ -->
+  <div class="modal-overlay hidden" id="modal-confirm" style="z-index: 10000;">
+    <div class="modal-box" style="max-width: 360px; padding: 24px; text-align: center; border-top: 4px solid var(--red);">
+      <div style="font-size:36px; margin-bottom: 12px; text-shadow: 0 0 10px #ff000050;">⚠️</div>
+      <h3 style="margin-bottom: 8px; font-weight: 600; font-size: 16px; color: var(--text);" id="confirm-title">Confirmación</h3>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px; line-height:1.5;" id="confirm-msg"></p>
+      <div style="display:flex; gap:12px; justify-content:center;">
+        <button class="btn btn-ghost" id="btn-confirm-no" style="flex:1; border: 1px solid var(--border);">No, cancelar</button>
+        <button class="btn btn-primary" id="btn-confirm-yes" style="flex:1; background: var(--red); color: white;">Sí, acepto</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="/js/auth.js?v=3"></script>
   <script src="/js/api.js?v=3"></script>
