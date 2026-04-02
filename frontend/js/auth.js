@@ -4,7 +4,7 @@ window.Auth = (() => {
   let currentUser = null;
   
   function init() {
-    const token = localStorage.getItem('ovo2_token');
+    const token = sessionStorage.getItem('ovo2_token');
     
     // Bind login form
     document.getElementById('form-login').addEventListener('submit', async (e) => {
@@ -22,7 +22,7 @@ window.Auth = (() => {
         const data = await res.json();
         
         if (res.ok && data.token) {
-          localStorage.setItem('ovo2_token', data.token);
+          sessionStorage.setItem('ovo2_token', data.token);
           currentUser = data.user;
           document.getElementById('login-overlay').classList.add('hidden');
           // Start the application after login
@@ -40,7 +40,7 @@ window.Auth = (() => {
   }
   
   async function checkSession() {
-    const token = localStorage.getItem('ovo2_token');
+    const token = sessionStorage.getItem('ovo2_token');
     if (!token) {
       showLogin();
       return false;
@@ -66,7 +66,7 @@ window.Auth = (() => {
   }
   
   function showLogin() {
-    localStorage.removeItem('ovo2_token');
+    sessionStorage.removeItem('ovo2_token');
     currentUser = null;
     document.getElementById('login-overlay').classList.remove('hidden');
   }
@@ -77,7 +77,7 @@ window.Auth = (() => {
   }
 
   function getToken() {
-    return localStorage.getItem('ovo2_token');
+    return sessionStorage.getItem('ovo2_token');
   }
 
   function getUser() {

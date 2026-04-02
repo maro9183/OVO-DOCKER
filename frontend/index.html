@@ -245,8 +245,17 @@
         <button class="btn btn-ghost btn-block btn-sm" id="btn-new-project" style="margin-top:6px">
           ＋ Nuevo Proyecto
         </button>
-        <button class="btn btn-ghost btn-block btn-sm" id="btn-logout" style="margin-top:20px; color:var(--text-muted);">
-          Cerrar Sesión
+        
+        <div id="sidebar-user-info" style="margin-top:20px; padding-top:10px; border-top:1px solid var(--border); display:flex; align-items:center; gap:8px;">
+          <div style="width:28px; height:28px; border-radius:50%; background:var(--indigo); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px;">👤</div>
+          <div style="flex:1; overflow:hidden;">
+            <div id="sidebar-user-name" style="font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Usuario</div>
+            <div id="sidebar-user-email" style="font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">email</div>
+          </div>
+        </div>
+
+        <button class="btn btn-ghost btn-block btn-sm" id="btn-logout" style="margin-top:6px; color:var(--red); text-align:left; justify-content:flex-start; padding-left:12px;">
+          ⏏ Cerrar Sesión
         </button>
       </div>
     </aside>
@@ -714,6 +723,7 @@
 
           <label class="form-label">Contraseña <span style="font-size:10px;color:gray">(Dejar en blanco para no cambiar)</span></label>
           <input type="password" id="user-password" class="form-control">
+
 
           <div style="margin-top:10px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-dark);">
             <label style="display:flex; align-items:center; gap:8px; font-weight:600;">

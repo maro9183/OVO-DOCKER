@@ -670,19 +670,31 @@ window.UI = (() => {
 
   function setupPermissions() {
     const user = Auth.getUser();
-    if (!user || user.es_admin !== 1) {
+    if (!user) return;
+
+    // Poblar información de usuario en la barra lateral
+    const elName = document.getElementById('sidebar-user-name');
+    const elEmail = document.getElementById('sidebar-user-email');
+    if (elName) elName.textContent = user.nombre || 'Usuario';
+    if (elEmail) elEmail.textContent = user.email || '';
+
+    if (user.es_admin !== 1) {
       document.getElementById('btn-admin-users').style.display = 'none';
       if (!Auth.hasPerm('CREATE')) {
         document.getElementById('btn-new-project').style.display = 'none';
         document.getElementById('btn-new-task').style.display = 'none';
       }
     } else {
-      document.getElementById('btn-admin-users').style.display = 'block';
+      document.getElementById('btn-admin-users').style.display = 'flex';
     }
   }
 
   function setupUsersAdmin() {
-    document.getElementById('btn-logout').addEventListener('click', () => Auth.logout());
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      if (confirm('¿Estás seguro que deseas cerrar la sesión?')) {
+        Auth.logout();
+      }
+    });
 
     const btnAdminUsers = document.getElementById('btn-admin-users');
     const modalUsers = document.getElementById('modal-users');
