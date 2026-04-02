@@ -672,8 +672,8 @@
   </div>
 
   <!-- ══════════════ MODAL DE USUARIOS ══════════════ -->
-  <div class="modal hidden" id="modal-users">
-    <div class="modal-content" style="max-width: 600px;">
+  <div class="modal-overlay hidden" id="modal-users">
+    <div class="modal-box" style="max-width: 600px;">
       <div class="modal-header">
         <h3 class="modal-title">Gestión de Usuarios</h3>
         <button class="btn btn-ghost btn-sm" id="btn-close-users" style="padding:4px 8px">✕</button>
@@ -696,24 +696,24 @@
   </div>
 
   <!-- ══════════════ MODAL CREAR/EDITAR USUARIO ══════════════ -->
-  <div class="modal hidden" id="modal-user-form">
-    <div class="modal-content" style="width: 400px;">
+  <div class="modal-overlay hidden" id="modal-user-form">
+    <div class="modal-box" style="max-width: 400px; padding-bottom: 24px;">
       <div class="modal-header">
         <h3 class="modal-title" id="user-form-title">Usuario</h3>
         <button class="btn btn-ghost btn-sm" id="btn-close-user-form" style="padding:4px 8px">✕</button>
       </div>
       <div class="modal-body">
-        <form id="form-user">
+        <form id="form-user" style="display: flex; flex-direction: column; gap: 8px;">
           <input type="hidden" id="user-id">
           
           <label class="form-label">Nombre</label>
-          <input type="text" id="user-nombre" class="form-input" required>
+          <input type="text" id="user-nombre" class="form-control" required>
           
           <label class="form-label">Email</label>
-          <input type="email" id="user-email" class="form-input" required>
+          <input type="email" id="user-email" class="form-control" required>
 
           <label class="form-label">Contraseña <span style="font-size:10px;color:gray">(Dejar en blanco para no cambiar)</span></label>
-          <input type="password" id="user-password" class="form-input">
+          <input type="password" id="user-password" class="form-control">
 
           <label class="form-label" style="margin-top:10px">Permisos CRUD</label>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
@@ -725,7 +725,7 @@
           </div>
 
           <label class="form-label">Proyectos Autorizados</label>
-          <div id="user-projects-list" style="max-height:100px; overflow-y:auto; border:1px solid var(--border); padding:8px; border-radius:4px; margin-bottom:12px;">
+          <div id="user-projects-list" style="max-height:100px; background: var(--bg); overflow-y:auto; border:1px solid var(--border); padding:8px; border-radius:4px; margin-bottom:12px;">
             <label style="display:block;"><input type="checkbox" id="user-proj-all" value="ALL"> [ALL] Todos los proyectos</label>
             <div id="user-proj-checks"></div>
           </div>

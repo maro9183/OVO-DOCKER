@@ -691,7 +691,7 @@ window.UI = (() => {
     if (!btnAdminUsers) return;
 
     btnAdminUsers.addEventListener('click', async () => {
-      document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+      document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
       modalUsers.classList.remove('hidden');
       await loadUsersTable();
     });
