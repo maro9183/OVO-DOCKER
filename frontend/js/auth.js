@@ -1,6 +1,6 @@
 // ── Frontend Auth Manager ──
 
-const Auth = (() => {
+window.Auth = (() => {
   let currentUser = null;
   
   function init() {
@@ -90,5 +90,5 @@ const Auth = (() => {
     return currentUser.permisos.split(',').map(x => x.trim().toUpperCase()).includes(action.toUpperCase());
   }
 
-  return { init, logout, getToken, getUser, hasPerm };
+  return { init, logout, getToken, getUser, hasPerm, checkSession };
 })();

@@ -5,8 +5,8 @@ window.API = (() => {
   async function req(method, path, body) {
     const opts = { method, headers: { 'Content-Type': 'application/json' } };
     
-    if (window.Auth && Auth.getToken()) {
-      opts.headers['Authorization'] = 'Bearer ' + Auth.getToken();
+    if (window.Auth && window.Auth.getToken()) {
+      opts.headers['Authorization'] = 'Bearer ' + window.Auth.getToken();
     }
     
     if (body !== undefined) opts.body = JSON.stringify(body);
