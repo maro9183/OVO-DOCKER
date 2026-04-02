@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nombre          VARCHAR(255) NOT NULL,
   permisos        VARCHAR(255) DEFAULT 'READ',  -- Ej: 'READ', 'CREATE,READ,UPDATE,DELETE', 'ALL'
   proyectos       TEXT,                         -- Ej: '1,2,3', 'ALL'
+  es_admin        TINYINT(1) DEFAULT 0,
   activo          TINYINT(1) DEFAULT 1,
   fecha_creacion  DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -715,6 +715,13 @@
           <label class="form-label">Contraseña <span style="font-size:10px;color:gray">(Dejar en blanco para no cambiar)</span></label>
           <input type="password" id="user-password" class="form-control">
 
+          <div style="margin-top:10px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-dark);">
+            <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+              <input type="checkbox" id="user-is-admin" style="accent-color: var(--amber);"> 👑 Es Administrador del Sistema
+            </label>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Puede crear/eliminar usuarios y ver configuraciones maestras.</div>
+          </div>
+
           <label class="form-label" style="margin-top:10px">Permisos CRUD</label>
           <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
             <label><input type="checkbox" class="user-perm" value="ALL"> ALL</label>

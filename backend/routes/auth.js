@@ -29,7 +29,8 @@ router.post('/login', async (req, res) => {
       email: user.email,
       nombre: user.nombre,
       permisos: user.permisos, // ej: "ALL" o "READ,CREATE"
-      proyectos: user.proyectos // ej: "ALL" o "1,2"
+      proyectos: user.proyectos, // ej: "ALL" o "1,2"
+      es_admin: user.es_admin === 1
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '8h' });

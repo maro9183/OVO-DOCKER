@@ -669,7 +669,8 @@ window.UI = (() => {
   }
 
   function setupPermissions() {
-    if (!Auth.hasPerm('ALL')) {
+    const user = Auth.getUser();
+    if (!user || user.es_admin !== 1) {
       document.getElementById('btn-admin-users').style.display = 'none';
       if (!Auth.hasPerm('CREATE')) {
         document.getElementById('btn-new-project').style.display = 'none';
@@ -703,6 +704,7 @@ window.UI = (() => {
     document.getElementById('btn-new-user').addEventListener('click', () => {
       formUser.reset();
       document.getElementById('user-id').value = '';
+      document.getElementById('user-is-admin').checked = false;
       document.getElementById('user-form-title').textContent = 'Nuevo Usuario';
       document.querySelectorAll('.user-perm').forEach(c => c.checked = false);
       renderUserProjectsChecks('');
@@ -716,6 +718,7 @@ window.UI = (() => {
         nombre: document.getElementById('user-nombre').value,
         email: document.getElementById('user-email').value,
         password: document.getElementById('user-password').value,
+        es_admin: document.getElementById('user-is-admin').checked,
         permisos: Array.from(document.querySelectorAll('.user-perm:checked')).map(c => c.value).join(','),
         proyectos: document.getElementById('user-proj-all').checked ? 'ALL' : Array.from(document.querySelectorAll('.user-proj-chk:checked')).map(c => c.value).join(','),
         activo: true
@@ -740,10 +743,10 @@ window.UI = (() => {
       const tbody = document.getElementById('users-tbody');
       tbody.innerHTML = users.map(u => `
         <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:8px">${u.nombre}</td>
-          <td style="padding:8px">${u.email}</td>
-          <td style="padding:8px"><span style="font-size:10px;background:var(--bg-lighter);padding:2px 4px;border-radius:4px">${u.permisos}</span></td>
-          <td style="padding:8px;text-align:right">
+          <td>${u.nombre} ${u.es_admin ? '👑' : ''}</td>
+          <td>${u.email}</td>
+          <td><span style="font-size:10px; padding:2px 6px; background:var(--bg-dark); border-radius:4px">${u.permisos}</span></td>
+          <td style="text-align:right">
             <button class="btn btn-ghost btn-sm" onclick="UI.editUser(${u.id_usuario})" style="padding:2px 6px">✏️</button>
             <button class="btn btn-ghost btn-sm" onclick="UI.deleteUser(${u.id_usuario})" style="padding:2px 6px;color:var(--danger)">🗑️</button>
           </td>
@@ -765,10 +768,12 @@ window.UI = (() => {
     document.getElementById('user-id').value = u.id_usuario;
     document.getElementById('user-nombre').value = u.nombre;
     document.getElementById('user-email').value = u.email;
+    document.getElementById('user-password').value = '';
+    document.getElementById('user-is-admin').checked = u.es_admin === 1;
     document.getElementById('user-form-title').textContent = 'Editar Usuario';
     
-    const pms = (u.permisos || '').split(',');
-    document.querySelectorAll('.user-perm').forEach(c => c.checked = pms.includes(c.value));
+    const pUser = (u.permisos || '').split(',');
+    document.querySelectorAll('.user-perm').forEach(c => c.checked = pUser.includes(c.value));
     
     renderUserProjectsChecks(u.proyectos || '');
     
