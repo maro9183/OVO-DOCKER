@@ -347,7 +347,19 @@ window.Exports = (() => {
       const altRowBg     = [243, 244, 246];
       const borderColor  = [209, 213, 219];
 
-      // ── HEADER ──
+      // ── HEADER REPLICATION ──
+      // Capture the Gantt header slice (grid titles + scale) from the top of the canvas
+      const pxPerMm = canvas.width / (pageW - margin * 2);
+      const headerPxH = (scaleH + 2) * 1.5; // +2 for border, *1.5 for scale
+      const headerMmH = headerPxH / pxPerMm;
+
+      const headerCanvas = document.createElement('canvas');
+      headerCanvas.width  = canvas.width;
+      headerCanvas.height = headerPxH;
+      headerCanvas.getContext('2d').drawImage(canvas, 0, 0, canvas.width, headerPxH, 0, 0, canvas.width, headerPxH);
+      const headerImg = headerCanvas.toDataURL('image/png');
+
+      // ── THE REPORT HEADER (Page 1 only) ──
       pdf.setFillColor(...primaryColor);
       pdf.rect(0, 0, pageW, 20, 'F');
       pdf.setFontSize(14);
@@ -359,54 +371,67 @@ window.Exports = (() => {
       pdf.setFont(undefined, 'normal');
       pdf.text(`Exportado: ${new Date().toLocaleString('es-AR')}  •  ${rows.length} tarea${rows.length > 1 ? 's' : ''}`, margin, 16);
 
-      // ── GANTT IMAGE ──
+      // ── GANTT IMAGE PAGINATION ──
       const imgData = canvas.toDataURL('image/png');
       const imgW = canvas.width;
       const imgH = canvas.height;
       const usableW = pageW - margin * 2;
-      const pxPerMm = imgW / usableW;
-      const scaledH = imgH / pxPerMm;
+      const usableH = pageH - margin * 2;
       const ganttStartY = 24;
-      const maxImgH = pageH - ganttStartY - margin;
+      const scaledH = imgH / pxPerMm;
 
-      if (scaledH <= maxImgH) {
-        // Fits on first page
+      if (scaledH <= (pageH - ganttStartY - margin)) {
+        // Fits fully on first page
         pdf.addImage(imgData, 'PNG', margin, ganttStartY, usableW, scaledH);
       } else {
-        // Multi-page Gantt image
-        const pxPerPage_first = maxImgH * pxPerMm;
-        const pxPerPage_rest  = (pageH - margin * 2 - 8) * pxPerMm;
+        // Multi-page logic
         let yPx = 0;
-        let page = 0;
+        let pageNum = 0;
 
         while (yPx < imgH) {
-          if (page > 0) {
-            pdf.addPage();
-          }
+          if (pageNum > 0) pdf.addPage();
+          
+          const isFirst    = (pageNum === 0);
+          const currentY   = isFirst ? ganttStartY : margin + 8;
+          const maxAvailMm = isFirst ? (pageH - ganttStartY - margin) : (pageH - margin * 2 - 10);
 
-          const isFirstPage = (page === 0);
-          const sliceMaxPx = isFirstPage ? pxPerPage_first : pxPerPage_rest;
-          const slicePxH = Math.min(sliceMaxPx, imgH - yPx);
-          const sliceMmH = slicePxH / pxPerMm;
-
-          const sliceCanvas = document.createElement('canvas');
-          sliceCanvas.width = imgW;
-          sliceCanvas.height = Math.ceil(slicePxH);
-          const ctx = sliceCanvas.getContext('2d');
-          ctx.drawImage(canvas, 0, yPx, imgW, slicePxH, 0, 0, imgW, Math.ceil(slicePxH));
-
-          const sliceImg = sliceCanvas.toDataURL('image/png');
-          const topY = isFirstPage ? ganttStartY : margin + 6;
-
-          if (!isFirstPage) {
+          if (!isFirst) {
+            // Repeat small title
             pdf.setFontSize(7);
             pdf.setTextColor(160, 160, 170);
-            pdf.text(`${projectName()} — Diagrama de Gantt (cont.)`, margin, margin + 3);
+            pdf.text(`${projectName()} — Diagrama de Gantt (cont.)`, margin, margin + 4);
+            
+            // PREPEND Header image
+            pdf.addImage(headerImg, 'PNG', margin, currentY, usableW, headerMmH);
           }
 
-          pdf.addImage(sliceImg, 'PNG', margin, topY, usableW, sliceMmH);
-          yPx += slicePxH;
-          page++;
+          // Slice task rows
+          // If NOT first page, we skip the header part of the slice in the canvas by adding headerPxH
+          const taskSliceYOffset = isFirst ? 0 : headerPxH; // visual offset for placement
+          const slicePxYStart = isFirst ? 0 : Math.max(headerPxH, yPx);
+          const sliceMmHAvailable = isFirst ? maxAvailMm : (maxAvailMm - headerMmH);
+          const slicePxHAvailable = sliceMmHAvailable * pxPerMm;
+          const slicePxHToDraw    = Math.min(slicePxHAvailable, imgH - slicePxYStart);
+          const sliceMmHToDraw    = slicePxHToDraw / pxPerMm;
+
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width  = imgW;
+          sliceCanvas.height = slicePxHToDraw;
+          const ctx = sliceCanvas.getContext('2d');
+          ctx.drawImage(canvas, 0, slicePxYStart, imgW, slicePxHToDraw, 0, 0, imgW, slicePxHToDraw);
+
+          const sliceImg = sliceCanvas.toDataURL('image/png');
+          const placementY = isFirst ? currentY : (currentY + headerMmH);
+          
+          pdf.addImage(sliceImg, 'PNG', margin, placementY, usableW, sliceMmHToDraw);
+          
+          // Advance yPx
+          if (isFirst) {
+            yPx = slicePxHToDraw;
+          } else {
+            yPx += slicePxHToDraw;
+          }
+          pageNum++;
         }
       }
 

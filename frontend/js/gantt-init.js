@@ -52,7 +52,7 @@ window.GanttApp = (() => {
     gantt.config.task_height   = 26;
     gantt.config.bar_height    = 20;
     gantt.config.link_radius   = 6;
-    gantt.config.grid_width    = 590;
+    gantt.config.grid_width    = 800;
     gantt.config.min_duration  = 86400000; // 1 day in ms
     gantt.config.drag_links    = true;
     gantt.config.drag_progress = true;
@@ -79,8 +79,14 @@ window.GanttApp = (() => {
     /* ── Columns ──────────────────────────────────────────── */
     gantt.config.columns = [
       {
-        name: 'text', label: 'Tarea', tree: true, width: 160,
-        template: t => `<span title="${t.text || ''}">${t.text || ''}</span>`
+        name: 'text', label: 'Tarea', tree: true, width: 230,
+        template: t => {
+          const today = new Date(); today.setHours(0,0,0,0);
+          const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
+          const isDelayed = (tStart <= today && (t.progress || 0) === 0 && t._estado !== 'Finalizada');
+          const dot = isDelayed ? '<span class="delayed-dot" title="Tarea retrasada: debió iniciar o iniciar hoy y tiene 0% avance"></span>' : '';
+          return `<div style="display:inline-flex;align-items:center">${dot}<span title="${t.text || ''}" style="font-weight:500">${t.text || ''}</span></div>`;
+        }
       },
       {
         name: 'project_col', label: 'Proyecto', width: 120, align: 'left',
@@ -111,7 +117,7 @@ window.GanttApp = (() => {
         template: t => t._raw?.duracion_dias || parseInt(t.duration) || 1
       },
       {
-        name: 'costo_col', label: 'Costo', width: 65, align: 'right',
+        name: 'costo_col', label: 'Costo', width: 85, align: 'right',
         template: t => {
           const v = parseFloat(t._raw?.costo_tarea || t._costo || 0);
           return v > 0 ? `<span style="font-size:11px;color:var(--text-muted)">$${v.toLocaleString('es-AR',{maximumFractionDigits:0})}</span>` : '';
@@ -122,16 +128,9 @@ window.GanttApp = (() => {
         template: t => `<span style="font-size:11px;color:var(--indigo)">${Math.round((t.progress||0)*100)}%</span>`
       },
       {
-        name: 'tipo_dias', label: '📅', width: 34, align: 'center',
-        template: t => t._tipo_dias === 'laboral'
-          ? '<span title="Días laborales (Lun-Sáb)">🗓</span>'
-          : '<span title="Días calendario">📅</span>'
-      },
-      {
         name: 'estado_col', label: 'Estado', width: 100, align: 'center',
         template: t => estadoBadge(t._estado)
-      },
-      { name: 'add', label: '', width: 38 }
+      }
     ];
 
     /* ── Templates ────────────────────────────────────────── */
@@ -152,18 +151,22 @@ window.GanttApp = (() => {
               <span class="task-bar-resp" title="${t.responsable || ''}">${initials}</span>`;
     };
 
-    gantt.templates.tooltip_text = (s, e, t) => `
+    gantt.templates.tooltip_text = (s, e, t) => {
+      const costo = parseFloat(t._raw?.costo_tarea || t._costo || 0);
+      return `
       <div style="min-width:180px">
         <strong style="font-size:13px">${t.text || ''}</strong><br>
         <div style="margin-top:6px;line-height:2">
           <span style="color:var(--text-muted)">Proyecto:</span> ${t._projectName || '—'}<br>
           <span style="color:var(--text-muted)">Inicio:</span> ${gantt.templates.date_grid(s)}<br>
           <span style="color:var(--text-muted)">Fin:</span> ${gantt.templates.date_grid(e)}<br>
+          <span style="color:var(--text-muted)">Costo:</span> ${costo > 0 ? '$' + costo.toLocaleString('es-AR') : '—'}<br>
           <span style="color:var(--text-muted)">Días:</span> ${t.duration} (${t._tipo_dias || 'calendario'})<br>
           <span style="color:var(--text-muted)">Avance:</span> ${Math.round((t.progress||0)*100)}%<br>
           <span style="color:var(--text-muted)">Responsable:</span> ${t.responsable || '—'}
         </div>
       </div>`;
+    };
 
     gantt.templates.link_class = () => 'gantt-link';
 
@@ -295,7 +298,7 @@ window.GanttApp = (() => {
 
     return {
       id:           t.id_tarea,
-      text:         t.tarea,
+      text:         t.descripcion || t.tarea,
       start_date:   startStr || t.fecha_inicio,
       end_date:     endStr,
       duration:     endStr ? undefined : (parseInt(t.duracion_dias) || 1),
@@ -502,7 +505,7 @@ window.GanttApp = (() => {
 
       gantt.render();
       if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
-      if (state.min_date) gantt.showDate(state.min_date);
+      gantt.showDate(new Date());
       updateSummary();
     });
   }
@@ -540,7 +543,7 @@ window.GanttApp = (() => {
 
     gantt.render();
     if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
-    if (state.min_date) gantt.showDate(state.min_date);
+    gantt.showDate(new Date());
     updateSummary();
     return allRawTasks;
   }
