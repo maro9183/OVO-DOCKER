@@ -887,30 +887,60 @@ window.UI = (() => {
     // Filter bar
     const applyFilters = () => { if (window.gantt) gantt.render(); };
     const fSearch = document.getElementById('filter-search');
-    const fEstado = document.getElementById('filter-estado');
+    const fEstado = document.getElementById('filter-estado'); // this is now a hidden input
     const fResp   = document.getElementById('filter-responsable');
     const fProj   = document.getElementById('filter-proyecto');
+    
+    // Custom dropdown for Estado
+    const btnFilterEstado = document.getElementById('btn-filter-estado');
+    const menuFilterEstado = document.getElementById('menu-filter-estado');
+    if (btnFilterEstado && menuFilterEstado && fEstado) {
+      btnFilterEstado.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuFilterEstado.style.display = menuFilterEstado.style.display === 'none' ? 'flex' : 'none';
+      });
+      document.addEventListener('click', () => {
+        menuFilterEstado.style.display = 'none';
+      });
+      menuFilterEstado.querySelectorAll('.fd-item').forEach(el => {
+         el.addEventListener('click', (e) => {
+            const val = e.currentTarget.getAttribute('data-value');
+            fEstado.value = val;
+            btnFilterEstado.innerHTML = val ? e.currentTarget.innerHTML : 'Estado';
+            applyFilters();
+         });
+      });
+    }
+
     if (fSearch) fSearch.addEventListener('input', applyFilters);
-    if (fEstado) fEstado.addEventListener('change', applyFilters);
     if (fResp)   fResp.addEventListener('change', applyFilters);
     if (fProj)   fProj.addEventListener('change', applyFilters);
+    
     const btnClear = document.getElementById('btn-filter-clear');
     if (btnClear) btnClear.addEventListener('click', () => {
       if (fSearch) fSearch.value = '';
       if (fEstado) fEstado.value = '';
+      if (btnFilterEstado) btnFilterEstado.innerHTML = 'Estado';
       if (fResp) fResp.value = '';
       if (fProj) fProj.value = '';
       applyFilters();
     });
 
+    const setEstado = (val, html) => {
+      if (fEstado) fEstado.value = val;
+      if (btnFilterEstado) btnFilterEstado.innerHTML = html || val;
+      applyFilters();
+      window.scrollTo({top:0, behavior:'smooth'});
+    };
+
     const statusRisk = document.getElementById('status-click-risk');
     if (statusRisk) statusRisk.addEventListener('click', () => {
-      if (fEstado) { fEstado.value = 'Retrasada'; applyFilters(); window.scrollTo({top:0, behavior:'smooth'}); }
+      setEstado('Retrasada', '<span class="badge badge-retrasada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Retrasada</span>');
     });
     
     const statusBlocked = document.getElementById('status-click-blocked');
     if (statusBlocked) statusBlocked.addEventListener('click', () => {
-      if (fEstado) { fEstado.value = 'Bloqueada'; applyFilters(); window.scrollTo({top:0, behavior:'smooth'}); }
+      setEstado('Bloqueada', '<span class="badge badge-bloqueada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Bloqueada</span>');
     });
 
     // Gantt filter hook

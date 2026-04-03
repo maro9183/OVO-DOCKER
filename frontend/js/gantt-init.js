@@ -410,20 +410,34 @@ window.GanttApp = (() => {
     try {
       const tasks = gantt.getTaskByTime();
       const ids = tasks.map(t => t.id);
-      const total = ids.length;
-      let done = 0, inProg = 0, totalCosto = 0, aplicado = 0;
+      let totT = 0, doneT = 0, progT = 0, pendT = 0;
+      let totS = 0, doneS = 0, progS = 0, pendS = 0;
+      let totalProgressT = 0, totalProgressS = 0;
+      let totalCosto = 0, aplicado = 0;
       let minDate = null, maxDate = null;
-      let delayed = 0, blocked = 0, totalProgress = 0;
+      let delayed = 0, blocked = 0;
       const today = new Date(); today.setHours(0,0,0,0);
       const upcomingMilestones = [];
 
       ids.forEach(id => {
         const t = gantt.getTask(id);
-        const p = Math.round(t.progress * 100);
-        if (p >= 100) done++;
-        else if (p > 0) inProg++;
+        const p = Math.round((t.progress || 0) * 100);
+        // Is subtask if it has a parent id != 0 that actually exists
+        const isSub = t.parent && String(t.parent) !== "0" && gantt.isTaskExists(t.parent);
 
-        totalProgress += p;
+        if (isSub) {
+          totS++;
+          totalProgressS += p;
+          if (p >= 100) doneS++;
+          else if (p > 0) progS++;
+          else pendS++;
+        } else {
+          totT++;
+          totalProgressT += p;
+          if (p >= 100) doneT++;
+          else if (p > 0) progT++;
+          else pendT++;
+        }
 
         const costo = parseFloat(t._raw?.costo_tarea || t._costo || 0);
         totalCosto += costo;
@@ -442,11 +456,11 @@ window.GanttApp = (() => {
           if (t.$target && t.$target.length > 0) {
             let isBlocked = false;
             for (let linkId of t.$target) {
-              if (gantt.isLinkExists(linkId)) {
+              if (window.gantt && gantt.isLinkExists && gantt.isLinkExists(linkId)) {
                 const link = gantt.getLink(linkId);
                 if (gantt.isTaskExists(link.source)) {
                   const pred = gantt.getTask(link.source);
-                  const predP = Math.round(pred.progress * 100);
+                  const predP = Math.round((pred.progress || 0) * 100);
                   if (predP < 100 && pred._estado !== 'Finalizada') {
                     isBlocked = true;
                     break;
@@ -457,14 +471,12 @@ window.GanttApp = (() => {
             if (isBlocked) blocked++;
           }
         }
-
-        // Track upcoming milestones (tasks starting soon, within 30 days)
+        
+        // Milestones and max/min dates logic untouched
         const daysUntil = Math.ceil((tStart - today) / 86400000);
         if (daysUntil > 0 && daysUntil <= 60 && p === 0) {
           upcomingMilestones.push({ name: t.text, date: tStart });
         }
-
-        // Track min start and max end dates
         if (t.start_date) {
           const sd = new Date(t.start_date);
           if (!minDate || sd < minDate) minDate = sd;
@@ -474,11 +486,10 @@ window.GanttApp = (() => {
           if (!maxDate || ed > maxDate) maxDate = ed;
         }
       });
-      const notStart = total - done - inProg;
+      
+      const total = totT + totS;
+      const totalProgress = totalProgressT + totalProgressS;
       const avgProgress = total > 0 ? Math.round(totalProgress / total) : 0;
-      const pctDone = total > 0 ? Math.round(done / total * 100) : 0;
-      const pctProg = total > 0 ? Math.round(inProg / total * 100) : 0;
-      const pctPend = total > 0 ? Math.round(notStart / total * 100) : 0;
       const pctAplicado = totalCosto > 0 ? Math.round(aplicado / totalCosto * 100) : 0;
 
       const fmtCur = n => '$' + n.toLocaleString('es-AR', {maximumFractionDigits:0});
@@ -487,19 +498,41 @@ window.GanttApp = (() => {
         const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
       };
+      
       const el = id => document.getElementById(id);
-      if(el('stat-total'))    el('stat-total').textContent    = total;
-      if(el('stat-done'))     el('stat-done').textContent     = done;
-      if(el('stat-progress')) el('stat-progress').textContent = inProg;
-      if(el('stat-pending'))  el('stat-pending').textContent  = notStart;
-      if(el('stat-costo-total'))    el('stat-costo-total').textContent    = fmtCur(totalCosto);
-      if(el('stat-total-aplicado')) el('stat-total-aplicado').textContent = fmtCur(aplicado);
+      const setDom = (id, val) => { if (el(id)) el(id).textContent = val; };
+      
+      // Totals
+      setDom('stat-total-t', totT);
+      setDom('stat-total-t-done', totT);
+      setDom('stat-total-t-prog', totT);
+      setDom('stat-total-t-pend', totT);
+      
+      setDom('stat-sub-total', totS);
+      setDom('stat-sub-total-done', totS);
+      setDom('stat-sub-total-prog', totS);
+      setDom('stat-sub-total-pend', totS);
 
-      // Percentages
-      if(el('stat-done-pct'))     el('stat-done-pct').textContent     = pctDone + '%';
-      if(el('stat-progress-pct')) el('stat-progress-pct').textContent = pctProg + '%';
-      if(el('stat-pending-pct'))  el('stat-pending-pct').textContent  = pctPend + '%';
-      if(el('stat-aplicado-pct')) el('stat-aplicado-pct').textContent = pctAplicado + '%';
+      // Main tasks
+      setDom('stat-done', doneT);
+      setDom('stat-progress', progT);
+      setDom('stat-pending', pendT);
+      setDom('stat-done-pct', totT ? Math.round(doneT/totT*100)+'%' : '0%');
+      setDom('stat-progress-pct', totT ? Math.round(progT/totT*100)+'%' : '0%');
+      setDom('stat-pending-pct', totT ? Math.round(pendT/totT*100)+'%' : '0%');
+
+      // Subtasks
+      setDom('stat-sub-done', doneS);
+      setDom('stat-sub-prog', progS);
+      setDom('stat-sub-pend', pendS);
+      setDom('stat-sub-done-pct', totS ? Math.round(doneS/totS*100)+'%' : '0%');
+      setDom('stat-sub-progress-pct', totS ? Math.round(progS/totS*100)+'%' : '0%');
+      setDom('stat-sub-pending-pct', totS ? Math.round(pendS/totS*100)+'%' : '0%');
+      
+      // Cost and applied
+      setDom('stat-costo-total', fmtCur(totalCosto));
+      setDom('stat-total-aplicado', fmtCur(aplicado));
+      setDom('stat-aplicado-pct', pctAplicado + '%');
 
       // Project dates
       if(el('stat-fecha-inicio')) el('stat-fecha-inicio').textContent = fmtDateShort(minDate);

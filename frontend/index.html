@@ -339,30 +339,49 @@
         <div class="stat-card">
           <div class="stat-icon" style="background:#6366f120">📋</div>
           <div class="stat-info">
-            <div class="stat-label">TAREAS</div>
-            <div class="stat-value" id="stat-total">0</div>
-            <div class="stat-sublabel">Total</div>
+            <div class="stat-label">TOTAL</div>
+            <div class="stat-main-row" style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2;">
+              Tareas: <span id="stat-total-t">0</span>
+            </div>
+            <div class="stat-sub-row" style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+              Subs: <span id="stat-sub-total">0</span>
+            </div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#10b98120">✅</div>
           <div class="stat-info">
             <div class="stat-label">FINALIZADAS</div>
-            <div class="stat-value"><span id="stat-done">0</span> <span class="stat-pct" id="stat-done-pct">0%</span></div>
+            <div class="stat-main-row" style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
+              <span id="stat-done">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span id="stat-total-t-done">0</span></span> <span class="stat-pct" id="stat-done-pct">0%</span>
+            </div>
+            <div class="stat-sub-row" style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
+              S: <span id="stat-sub-done">0</span> <span style="color:var(--text-dim)">/ <span id="stat-sub-total-done">0</span></span> <span class="stat-pct" id="stat-sub-done-pct" style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
+            </div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#f59e0b20">⚡</div>
           <div class="stat-info">
-            <div class="stat-label">EN PROGRESO</div>
-            <div class="stat-value"><span id="stat-progress">0</span> <span class="stat-pct" id="stat-progress-pct">0%</span></div>
+             <div class="stat-label">EN PROGRESO</div>
+             <div class="stat-main-row" style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
+              <span id="stat-progress">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span id="stat-total-t-prog">0</span></span> <span class="stat-pct" id="stat-progress-pct">0%</span>
+            </div>
+            <div class="stat-sub-row" style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
+              S: <span id="stat-sub-prog">0</span> <span style="color:var(--text-dim)">/ <span id="stat-sub-total-prog">0</span></span> <span class="stat-pct" id="stat-sub-progress-pct" style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
+            </div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#55587820">⏳</div>
           <div class="stat-info">
             <div class="stat-label">PENDIENTES</div>
-            <div class="stat-value"><span id="stat-pending">0</span> <span class="stat-pct" id="stat-pending-pct">0%</span></div>
+            <div class="stat-main-row" style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
+              <span id="stat-pending">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span id="stat-total-t-pend">0</span></span> <span class="stat-pct" id="stat-pending-pct">0%</span>
+            </div>
+            <div class="stat-sub-row" style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
+              S: <span id="stat-sub-pend">0</span> <span style="color:var(--text-dim)">/ <span id="stat-sub-total-pend">0</span></span> <span class="stat-pct" id="stat-sub-pending-pct" style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
+            </div>
           </div>
         </div>
         <div class="stat-card">
@@ -383,26 +402,32 @@
 
       <!-- Filter Bar -->
       <div class="filter-bar" id="filter-bar" style="display:none">
-        <div class="filter-bar-left" style="width: 100%; display: flex; gap: 8px;">
+        <div class="filter-bar-left" style="width: 100%; display: flex; gap: 8px; align-items:center;">
+          <button class="btn btn-ghost btn-sm btn-pill" id="btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap;" title="Limpiar filtros">Deshacer Filtro</button>
           <div class="filter-search" style="flex:1;">
             <span class="filter-search-icon">🔍</span>
             <input type="text" id="filter-search" placeholder="Buscar tareas..." class="filter-input" style="width:100%">
           </div>
-          <select class="filter-select" id="filter-estado">
-            <option value="">Estado</option>
-            <option value="En progreso">🔵 En progreso</option>
-            <option value="Finalizada">🟢 Finalizada</option>
-            <option value="No comenzada">⚪ Pendiente</option>
-            <option value="Retrasada">🔴 Retrasada</option>
-            <option value="Bloqueada">⚫ Bloqueada</option>
-          </select>
+          <div class="filter-custom-select" style="position:relative;" id="custom-estado-wrapper">
+            <input type="hidden" id="filter-estado" value="">
+            <button class="filter-select" id="btn-filter-estado" style="display:flex;align-items:center;justify-content:center;min-width:100px;">
+              Estado
+            </button>
+            <div class="filter-dropdown-menu" id="menu-filter-estado" style="display:none; position:absolute; top:calc(100% + 4px); left:0; width:130px; background:var(--card); border:1px solid var(--border-light); border-radius:var(--radius); box-shadow:var(--shadow-lg); z-index:500; overflow:hidden; flex-direction:column; gap:2px; padding:6px;">
+               <div class="fd-item filter-select" data-value="" style="padding:4px 8px; cursor:pointer; font-size:11px; background:transparent; border:none; color:var(--text); text-align:left;">Estado (Todos)</div>
+               <div class="fd-item" data-value="En progreso" style="padding:3px; cursor:pointer;"><span class="badge badge-en-progreso" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">En progreso</span></div>
+               <div class="fd-item" data-value="Finalizada" style="padding:3px; cursor:pointer;"><span class="badge badge-finalizada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Finalizada</span></div>
+               <div class="fd-item" data-value="No comenzada" style="padding:3px; cursor:pointer;"><span class="badge badge-no-comenzada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Pendiente</span></div>
+               <div class="fd-item" data-value="Retrasada" style="padding:3px; cursor:pointer;"><span class="badge badge-retrasada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Retrasada</span></div>
+               <div class="fd-item" data-value="Bloqueada" style="padding:3px; cursor:pointer;"><span class="badge badge-bloqueada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Bloqueada</span></div>
+            </div>
+          </div>
           <select class="filter-select" id="filter-responsable">
             <option value="">Responsable</option>
           </select>
           <select class="filter-select" id="filter-proyecto">
             <option value="">Proyecto</option>
           </select>
-          <button class="btn btn-ghost btn-sm btn-pill" id="btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600;" title="Limpiar filtros">Deshacer Filtro</button>
         </div>
       </div>
 
