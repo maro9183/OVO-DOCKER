@@ -42,6 +42,7 @@ window.GanttApp = (() => {
   /* ── Configure gantt ─────────────────────────────────────── */
   function configure() {
     gantt.config.show_grid = false;
+    gantt.config.open_tree_initially = false;
     gantt.plugins({ tooltip: true, marker: true });
 
     gantt.config.date_format  = '%Y-%m-%d';
@@ -89,8 +90,7 @@ window.GanttApp = (() => {
           const isDelayed = (tStart <= today && (t.progress || 0) === 0 && t._estado !== 'Finalizada');
           const color = isDelayed ? 'var(--red)' : 'inherit';
           const title = isDelayed ? 'Tarea retrasada: debió iniciar o iniciar hoy y tiene 0% avance' : (t.text || '');
-          const noteIcon = (t.note_count > 0) ? `<span title="Tiene ${t.note_count} notas internas" style="margin-left: 6px; cursor: pointer; opacity: 0.8;">📝</span>` : '';
-          return `<div style="display:inline-flex;align-items:center"><span title="${title}" style="font-weight:600; color:${color}">${t.text || ''}</span>${noteIcon}</div>`;
+          return `<div style="display:inline-flex;align-items:center"><span title="${title}" style="font-weight:600; color:${color}">${t.text || ''}</span></div>`;
         }
       },
       {
@@ -132,8 +132,23 @@ window.GanttApp = (() => {
         template: t => estadoBadge(t)
       },
       {
-        name: 'notes_col', label: '📝', width: 30, align: 'center',
-        template: t => (t.note_count > 0) ? `<span title="${t.note_count} notas" style="cursor:pointer;opacity:0.7">📝</span>` : ''
+        name: 'notes_col', label: 'Notas', width: 45, align: 'center',
+        template: t => {
+          if (t.note_count > 0) {
+            return `
+            <div class="note-col-trigger" data-id="${t.id}" style="display:flex; justify-content:center; align-items:center; width:28px; height:28px; background:var(--indigo); color:#fff; border-radius:8px; margin:0 auto; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.2);" title="Ver ${t.note_count} nota(s) internas">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+            </div>
+            `;
+          }
+          return '';
+        }
       }
     ];
 
@@ -406,8 +421,19 @@ window.GanttApp = (() => {
     _ignoreUpdate = false;
     updateSummary();
   }
+    
+    gantt.attachEvent("onTaskClick", function(id, e) {
+      if (e.target.closest('.note-col-trigger')) {
+        const trueId = e.target.closest('.note-col-trigger').dataset.id;
+        if (window.UI && window.UI.openNotesModal) {
+          window.UI.openNotesModal(trueId);
+        }
+        return false;
+      }
+      return true;
+    });
 
-  function updateSummary() {
+    function updateSummary() {
     try {
       const tasks = gantt.getTaskByTime();
       const ids = tasks.map(t => t.id);

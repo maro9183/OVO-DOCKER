@@ -852,9 +852,14 @@ window.UI = (() => {
         const cs = gantt.config.show_grid;
         gantt.config.show_grid = !cs;
         btnToggleGrid.textContent = !cs ? 'Ocultar Lista de Tareas' : '≡ Lista de Tareas';
+        
         if (!cs) {
           btnToggleGrid.classList.add('btn-primary', 'active');
           btnToggleGrid.classList.remove('btn-ghost');
+          // Collapse all tasks when opening grid
+          gantt.eachTask(t => { 
+            if(gantt.hasChild(t.id)) gantt.close(t.id); 
+          });
         } else {
           btnToggleGrid.classList.remove('btn-primary', 'active');
           btnToggleGrid.classList.add('btn-ghost');
