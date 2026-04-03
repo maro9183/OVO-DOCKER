@@ -1,0 +1,76 @@
+# GUÍA DE IMPLEMENTACIÓN EN RED PRIVADA (INTRANET) - OVO2
+
+Esta guía detalla los pasos para desplegar el sistema de gestión de proyectos en el servidor interno de la empresa, garantizando estabilidad, seguridad y accesibilidad.
+
+---
+
+## 1. Requisitos Técnicos del Servidor
+- **S.O.**: Windows Server 2019+ o Linux (Ubuntu 22.04 LTS recomendado).
+- **Entorno**: 
+  - Node.js v16.0 o superior.
+  - MySQL Server 8.0+.
+- **Red**: Dirección IP estática asignada al servidor dentro de la LAN.
+
+---
+
+## 2. Configuración de Base de Datos (MySQL)
+1. **Instalación**: Instalar MySQL Server y asegurar el servicio.
+2. **Usuario**: Crear un usuario específico para la app (evitar usar 'root').
+   ```sql
+   CREATE USER 'ovo_user'@'localhost' IDENTIFIED BY 'PasswordSegura123';
+   GRANT ALL PRIVILEGES ON ovo2.* TO 'ovo_user'@'localhost';
+   FLUSH PRIVILEGES;
+   ```
+3. **Esquema**: El sistema crea las tablas automáticamente al iniciar, pero se puede pre-cargar usando `sql/schema.sql`.
+
+---
+
+## 3. Preparación del Aplicativo
+1. **Clonado/Copia**: Copiar la carpeta completa `OVO2` al servidor (ej. `C:\Apps\OVO2` o `/opt/ovo2`).
+2. **Dependencias**:
+   ```bash
+   cd backend
+   npm install --production
+   ```
+3. **Variables de Entorno**: Crear un archivo `.env` en `backend/` con los datos del servidor local:
+   ```env
+   DB_HOST=localhost
+   DB_NAME=ovo2
+   DB_USER=ovo_user
+   DB_PASSWORD=PasswordSegura123
+   PORT=3000
+   JWT_SECRET=UnScriptLargoYSecretoParaLaEmpresa
+   ```
+
+---
+
+## 4. Persistencia y Auto-arranque
+Para que el sistema no se cierre al cerrar la sesión del servidor:
+- **Opción A (Recomendada)**: Usar **PM2**.
+  ```bash
+  npm install -g pm2
+  pm2 start server.js --name "OVO2-Gantt"
+  pm2 save
+  pm2 startup
+  ```
+- **Opción B (Windows)**: Usar **NSSM** para convertir el proceso de Node en un Servicio de Windows que inicie con el sistema.
+
+---
+
+## 5. Configuración de Red e Infraestructura
+1. **Firewall**: Abrir el puerto definido (ej: 3000) en el Firewall del servidor para "Entrada" en perfil de Dominio/Privado.
+2. **Acceso por IP**: Los usuarios accederán vía `http://[IP-DEL-SERVIDOR]:3000`.
+3. **DNS Interno (Opcional)**: Solicitar a IT que cree un registro tipo A o CNAME (ej: `gantt.empresa.local`) que apunte a la IP del servidor para evitar el uso de IPs.
+
+---
+
+## 6. Seguridad y Mantenimiento
+1. **Backup**: Programar una tarea (cron o Task Scheduler) para respaldos diarios de MySQL:
+   ```bash
+   mysqldump -u ovo_user -p ovo2 > C:\backups\gantt_backup.sql
+   ```
+2. **SSL/HTTPS**: Para mayor seguridad, se recomienda un proxy inverso (Nginx o IIS) con un certificado SSL corporativo.
+3. **Actualizaciones**: Mantener la carpeta `backend/node_modules` libre de vulnerabilidades ejecutando `npm audit fix` periódicamente.
+
+---
+*Documentación generada por Antigravity para el equipo de Infraestructura.*
