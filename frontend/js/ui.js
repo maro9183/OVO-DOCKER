@@ -916,14 +916,16 @@ window.UI = (() => {
     if (fResp)   fResp.addEventListener('change', applyFilters);
     if (fProj)   fProj.addEventListener('change', applyFilters);
     
-    const btnClear = document.getElementById('btn-filter-clear');
-    if (btnClear) btnClear.addEventListener('click', () => {
-      if (fSearch) fSearch.value = '';
-      if (fEstado) fEstado.value = '';
-      if (btnFilterEstado) btnFilterEstado.innerHTML = 'Estado';
-      if (fResp) fResp.value = '';
-      if (fProj) fProj.value = '';
-      applyFilters();
+    const btnClears = document.querySelectorAll('.btn-filter-clear');
+    btnClears.forEach(btnClear => {
+      btnClear.addEventListener('click', () => {
+        if (fSearch) fSearch.value = '';
+        if (fEstado) fEstado.value = '';
+        if (btnFilterEstado) btnFilterEstado.innerHTML = 'Estado';
+        if (fResp) fResp.value = '';
+        if (fProj) fProj.value = '';
+        applyFilters();
+      });
     });
 
     const setEstado = (val, html) => {

@@ -219,7 +219,7 @@
   <div class="app-layout">
 
     <!-- ══════════════ SIDEBAR ══════════════ -->
-    <aside class="sidebar">
+    <aside class="sidebar collapsed" id="sidebar">
       <div class="sidebar-header">
         <div class="logo">
           <img src="/img/logo.png" class="logo-img" alt="OVOBRAND">
@@ -403,7 +403,7 @@
       <!-- Filter Bar -->
       <div class="filter-bar" id="filter-bar" style="display:none">
         <div class="filter-bar-left" style="width: 100%; display: flex; gap: 8px; align-items:center;">
-          <button class="btn btn-ghost btn-sm btn-pill" id="btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap;" title="Limpiar filtros">Deshacer Filtro</button>
+          <button class="btn btn-ghost btn-sm btn-pill btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap;" title="Limpiar filtros">Deshacer Filtro</button>
           <div class="filter-search" style="flex:1;">
             <span class="filter-search-icon">🔍</span>
             <input type="text" id="filter-search" placeholder="Buscar tareas..." class="filter-input" style="width:100%">
@@ -428,6 +428,7 @@
           <select class="filter-select" id="filter-proyecto">
             <option value="">Proyecto</option>
           </select>
+          <button class="btn btn-ghost btn-sm btn-pill btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap; margin-left: auto;" title="Limpiar filtros">Deshacer Filtro</button>
         </div>
       </div>
 
