@@ -128,19 +128,12 @@ window.GanttApp = (() => {
         template: t => t._raw?.duracion_dias || parseInt(t.duration) || 1
       },
       {
-        name: 'costo_col', label: 'Costo', width: 85, align: 'right',
-        template: t => {
-          const v = parseFloat(t._raw?.costo_tarea || t._costo || 0);
-          return v > 0 ? `<span style="font-size:11px;color:var(--text-muted)">$${v.toLocaleString('es-AR',{maximumFractionDigits:0})}</span>` : '';
-        }
-      },
-      {
-        name: 'avance_col', label: '%', width: 42, align: 'center',
-        template: t => `<span style="font-size:11px;color:var(--indigo)">${Math.round((t.progress||0)*100)}%</span>`
-      },
-      {
         name: 'estado_col', label: 'Estado', width: 100, align: 'center',
         template: t => estadoBadge(t._estado)
+      },
+      {
+        name: 'notes_col', label: '📝', width: 30, align: 'center',
+        template: t => (t.note_count > 0) ? `<span title="${t.note_count} notas" style="cursor:pointer;opacity:0.7">📝</span>` : ''
       }
     ];
 
@@ -389,6 +382,9 @@ window.GanttApp = (() => {
       const total = ids.length;
       let done = 0, inProg = 0, totalCosto = 0, aplicado = 0;
       let minDate = null, maxDate = null;
+      let delayed = 0, blocked = 0, totalProgress = 0;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const upcomingMilestones = [];
 
       ids.forEach(id => {
         const t = gantt.getTask(id);
@@ -396,10 +392,24 @@ window.GanttApp = (() => {
         if (p >= 100) done++;
         else if (p > 0) inProg++;
 
+        totalProgress += p;
+
         const costo = parseFloat(t._raw?.costo_tarea || t._costo || 0);
         totalCosto += costo;
         if (t._estado === 'Finalizada' || p >= 100) {
           aplicado += costo;
+        }
+
+        // Delayed: start <= today and 0% progress
+        const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
+        if (tStart <= today && p === 0 && t._estado !== 'Finalizada') {
+          delayed++;
+        }
+
+        // Track upcoming milestones (tasks starting soon, within 30 days)
+        const daysUntil = Math.ceil((tStart - today) / 86400000);
+        if (daysUntil > 0 && daysUntil <= 60 && p === 0) {
+          upcomingMilestones.push({ name: t.text, date: tStart });
         }
 
         // Track min start and max end dates
@@ -413,6 +423,11 @@ window.GanttApp = (() => {
         }
       });
       const notStart = total - done - inProg;
+      const avgProgress = total > 0 ? Math.round(totalProgress / total) : 0;
+      const pctDone = total > 0 ? Math.round(done / total * 100) : 0;
+      const pctProg = total > 0 ? Math.round(inProg / total * 100) : 0;
+      const pctPend = total > 0 ? Math.round(notStart / total * 100) : 0;
+      const pctAplicado = totalCosto > 0 ? Math.round(aplicado / totalCosto * 100) : 0;
 
       const fmtCur = n => '$' + n.toLocaleString('es-AR', {maximumFractionDigits:0});
       const fmtDateShort = d => {
@@ -428,9 +443,14 @@ window.GanttApp = (() => {
       if(el('stat-costo-total'))    el('stat-costo-total').textContent    = fmtCur(totalCosto);
       if(el('stat-total-aplicado')) el('stat-total-aplicado').textContent = fmtCur(aplicado);
 
+      // Percentages
+      if(el('stat-done-pct'))     el('stat-done-pct').textContent     = pctDone + '%';
+      if(el('stat-progress-pct')) el('stat-progress-pct').textContent = pctProg + '%';
+      if(el('stat-pending-pct'))  el('stat-pending-pct').textContent  = pctPend + '%';
+      if(el('stat-aplicado-pct')) el('stat-aplicado-pct').textContent = pctAplicado + '%';
+
       // Project dates
       if(el('stat-fecha-inicio')) el('stat-fecha-inicio').textContent = fmtDateShort(minDate);
-      // maxDate from Gantt is exclusive (day after last), so subtract 1 day
       if(el('stat-fecha-fin')) {
         if (maxDate) {
           const adjustedEnd = new Date(maxDate);
@@ -438,6 +458,33 @@ window.GanttApp = (() => {
           el('stat-fecha-fin').textContent = fmtDateShort(adjustedEnd);
         } else {
           el('stat-fecha-fin').textContent = '--';
+        }
+      }
+
+      // Status bar
+      if(el('status-risk-count'))    el('status-risk-count').textContent    = delayed;
+      if(el('status-blocked-count')) el('status-blocked-count').textContent = blocked;
+      if(el('status-avance'))        el('status-avance').textContent        = avgProgress + '%';
+      if(el('status-avance-bar'))    el('status-avance-bar').style.width    = avgProgress + '%';
+
+      // Milestones
+      const mList = el('status-milestones');
+      if (mList) {
+        upcomingMilestones.sort((a,b) => a.date - b.date);
+        const top = upcomingMilestones.slice(0, 3);
+        if (top.length === 0) {
+          mList.innerHTML = '<div class="status-milestone-empty">Sin hitos próximos</div>';
+        } else {
+          const months = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+          mList.innerHTML = top.map(m => `
+            <div class="status-milestone-item">
+              <div class="status-milestone-date">
+                <span class="m-day">${m.date.getDate()}</span>
+                <span>${months[m.date.getMonth()]}</span>
+              </div>
+              <span class="status-milestone-name">${m.name}</span>
+            </div>
+          `).join('');
         }
       }
     } catch(_) {}

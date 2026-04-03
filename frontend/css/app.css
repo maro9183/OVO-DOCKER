@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    GANTT TRACKER — Premium Dark Theme
    ============================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -240,7 +240,7 @@ body {
 /* ── Summary Cards ────────────────────────────────────────── */
 .summary-strip {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   padding: 12px 20px;
   background: var(--sidebar);
   border-bottom: 1px solid var(--border);
@@ -250,14 +250,15 @@ body {
 .summary-strip::-webkit-scrollbar { display: none; }
 
 .stat-card {
+  flex: 1;
   background: var(--card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  padding: 10px 16px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 130px;
+  min-width: 0;
   white-space: nowrap;
 }
 .stat-icon {
@@ -267,9 +268,172 @@ body {
   font-size: 15px;
   flex-shrink: 0;
 }
+.stat-info { min-width: 0; }
 .stat-info .stat-value { font-size: 18px; font-weight: 700; line-height: 1; }
-.stat-info .stat-value.stat-value-sm { font-size: 13px; font-weight: 600; }
-.stat-info .stat-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.stat-info .stat-value.stat-value-sm { font-size: 14px; font-weight: 700; }
+.stat-info .stat-label { font-size: 9px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+.stat-info .stat-sublabel { font-size: 9px; color: var(--text-dim); margin-top: 1px; }
+.stat-pct { font-size: 13px; font-weight: 500; color: var(--text-muted); margin-left: 6px; }
+
+/* ── Filter Bar ──────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+.filter-bar-left { display: flex; align-items: center; gap: 8px; }
+.filter-bar-right { display: flex; align-items: center; }
+.filter-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.filter-search-icon {
+  position: absolute;
+  left: 8px;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.filter-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px 6px 28px;
+  font-size: 12px;
+  color: var(--text);
+  font-family: inherit;
+  width: 180px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.filter-input:focus { border-color: var(--indigo); }
+.filter-input::placeholder { color: var(--text-dim); }
+.filter-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.filter-select:focus { border-color: var(--indigo); }
+.filter-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Status Bar (Bottom) ─────────────────────────────────── */
+.status-bar {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  background: var(--sidebar);
+  flex-shrink: 0;
+  min-height: 80px;
+}
+.status-section {
+  flex: 1;
+  padding: 12px 20px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.status-section:last-child { border-right: none; }
+.status-header { margin-bottom: 4px; }
+.status-title {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.status-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status-number {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+.status-risk .status-number { color: var(--amber); }
+.status-blocked .status-number { color: var(--text); }
+.status-general .status-number { color: var(--text); }
+.status-icon-alert { font-size: 18px; }
+.status-desc {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.status-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.status-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--indigo), var(--cyan));
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+.status-milestones-list {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text);
+  margin-top: 4px;
+}
+.status-milestone-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status-milestone-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--cyan);
+  min-width: 30px;
+}
+.status-milestone-date .m-day { font-size: 14px; }
+.status-milestone-name {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.status-milestone-empty { font-size: 11px; color: var(--text-dim); font-style: italic; }
 
 /* All-projects special sidebar item */
 .all-projects-item {
@@ -648,96 +812,26 @@ textarea.form-control { resize: vertical; min-height: 72px; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .hidden { display: none !important; }
- / *    % %  S i d e b a r   A c t i o n s    % % % % % % % % % % % % % %  * / 
- . i c o n - o n l y   { 
-     w i d t h :   2 8 p x   ! i m p o r t a n t ; 
-     h e i g h t :   2 8 p x   ! i m p o r t a n t ; 
-     d i s p l a y :   f l e x   ! i m p o r t a n t ; 
-     a l i g n - i t e m s :   c e n t e r   ! i m p o r t a n t ; 
-     j u s t i f y - c o n t e n t :   c e n t e r   ! i m p o r t a n t ; 
-     b a c k g r o u n d :   t r a n s p a r e n t   ! i m p o r t a n t ; 
-     b o r d e r :   n o n e   ! i m p o r t a n t ; 
-     c o l o r :   v a r ( - - t e x t - m u t e d )   ! i m p o r t a n t ; 
-     t r a n s i t i o n :   a l l   0 . 2 s   e a s e   ! i m p o r t a n t ; 
- } 
- . i c o n - o n l y : h o v e r   { 
-     c o l o r :   v a r ( - - t e x t )   ! i m p o r t a n t ; 
-     t r a n s f o r m :   s c a l e ( 1 . 1 ) ; 
-     b a c k g r o u n d :   v a r ( - - c a r d - h o v e r )   ! i m p o r t a n t ; 
-     b o r d e r - r a d i u s :   4 p x ; 
- } 
- 
- / *    % %  M o d e r n   N o t e s   S t y l i n g    % % % % % % % % % %  * / 
- . n o t e s - l i s t   { 
-     d i s p l a y :   f l e x ; 
-     f l e x - d i r e c t i o n :   c o l u m n ; 
-     g a p :   1 2 p x ; 
-     m a x - h e i g h t :   4 0 0 p x ; 
-     o v e r f l o w - y :   a u t o ; 
-     m a r g i n - b o t t o m :   2 0 p x ; 
-     p a d d i n g - r i g h t :   8 p x ; 
- } 
- . n o t e - i t e m   { 
-     b a c k g r o u n d :   v a r ( - - c a r d ) ; 
-     b o r d e r :   1 p x   s o l i d   v a r ( - - b o r d e r ) ; 
-     b o r d e r - r a d i u s :   v a r ( - - r a d i u s ) ; 
-     p a d d i n g :   1 2 p x ; 
-     p o s i t i o n :   r e l a t i v e ; 
-     t r a n s i t i o n :   t r a n s f o r m   0 . 2 s   e a s e ,   b o x - s h a d o w   0 . 2 s   e a s e ; 
- } 
- . n o t e - i t e m : h o v e r   { 
-     t r a n s f o r m :   t r a n s l a t e Y ( - 2 p x ) ; 
-     b o x - s h a d o w :   v a r ( - - s h a d o w ) ; 
-     b o r d e r - c o l o r :   v a r ( - - b o r d e r - l i g h t ) ; 
- } 
- . n o t e - m e t a   { 
-     d i s p l a y :   f l e x ; 
-     j u s t i f y - c o n t e n t :   s p a c e - b e t w e e n ; 
-     a l i g n - i t e m s :   c e n t e r ; 
-     f o n t - s i z e :   1 1 p x ; 
-     c o l o r :   v a r ( - - t e x t - m u t e d ) ; 
-     m a r g i n - b o t t o m :   8 p x ; 
-     b o r d e r - b o t t o m :   1 p x   s o l i d   v a r ( - - b o r d e r ) ; 
-     p a d d i n g - b o t t o m :   6 p x ; 
- } 
- . n o t e - a u t h o r   { 
-     f o n t - w e i g h t :   6 0 0 ; 
-     c o l o r :   v a r ( - - i n d i g o ) ; 
- } 
- . n o t e - t e x t   { 
-     f o n t - s i z e :   1 3 p x ; 
-     l i n e - h e i g h t :   1 . 5 ; 
-     c o l o r :   v a r ( - - t e x t ) ; 
-     w h i t e - s p a c e :   p r e - w r a p ; 
- } 
- . n o t e - d e l e t e   { 
-     b a c k g r o u n d :   t r a n s p a r e n t ; 
-     b o r d e r :   n o n e ; 
-     c o l o r :   v a r ( - - t e x t - d i m ) ; 
-     c u r s o r :   p o i n t e r ; 
-     f o n t - s i z e :   1 6 p x ; 
-     p a d d i n g :   0   4 p x ; 
-     t r a n s i t i o n :   c o l o r   0 . 2 s ; 
- } 
- . n o t e - d e l e t e : h o v e r   {   c o l o r :   v a r ( - - r e d ) ;   } 
-  
- 
- / *    % %  M o d e r n   U s e r   C a r d    % % % % % % % % % % % % % %  * / 
- . u s e r - c a r d   { 
-     t r a n s i t i o n :   a l l   0 . 3 s   c u b i c - b e z i e r ( 0 . 4 ,   0 ,   0 . 2 ,   1 ) ; 
-     c u r s o r :   p o i n t e r ; 
-     b o r d e r :   1 p x   s o l i d   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 0 5 )   ! i m p o r t a n t ; 
- } 
- . u s e r - c a r d : h o v e r   { 
-     b a c k g r o u n d :   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 0 5 )   ! i m p o r t a n t ; 
-     t r a n s f o r m :   t r a n s l a t e Y ( - 2 p x ) ; 
-     b o x - s h a d o w :   0   8 p x   2 4 p x   r g b a ( 0 , 0 , 0 , 0 . 3 )   ! i m p o r t a n t ; 
-     b o r d e r - c o l o r :   v a r ( - - i n d i g o - g l o w )   ! i m p o r t a n t ; 
- } 
- 
- / *    % %  S u m m a r y   S t r i p   A l i g n m e n t    % % % % % % %  * / 
- . s u m m a r y - s t r i p   { 
-     j u s t i f y - c o n t e n t :   f l e x - e n d   ! i m p o r t a n t ; 
- } 
-  
- 
+
+/* -- Sidebar Icon Actions -- */
+.icon-only {
+  width: 28px !important; height: 28px !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  background: transparent !important; border: none !important;
+  color: var(--text-muted) !important; transition: all 0.2s ease !important;
+}
+.icon-only:hover { color: var(--text) !important; transform: scale(1.1); background: var(--card-hover) !important; border-radius: 4px; }
+
+/* -- Modern Notes -- */
+.notes-list { display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; margin-bottom: 20px; padding-right: 8px; }
+.note-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; position: relative; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.note-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--border-light); }
+.note-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.note-author { font-weight: 600; color: var(--indigo); }
+.note-text { font-size: 13px; line-height: 1.5; color: var(--text); white-space: pre-wrap; }
+.note-delete { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px; padding: 0 4px; transition: color 0.2s; }
+.note-delete:hover { color: var(--red); }
+
+/* -- User Card -- */
+.user-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: 1px solid rgba(255,255,255,0.05) !important; }
+.user-card:hover { background: rgba(255,255,255,0.05) !important; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important; border-color: var(--indigo-glow) !important; }

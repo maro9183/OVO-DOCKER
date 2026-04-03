@@ -80,9 +80,7 @@ window.UI = (() => {
       document.getElementById('project-badge').textContent = '';
       document.getElementById('project-badge').style.display = 'none';
       renderProjectList();
-      document.getElementById('toolbar-actions').style.display = 'flex';
-      const tal = document.getElementById('toolbar-actions-left');
-      if (tal) tal.style.display = 'block';
+      showMainUI();
     } catch (e) { toast('Error al cargar proyectos', 'error'); console.error(e); }
   }
 
@@ -100,10 +98,46 @@ window.UI = (() => {
       // Tarea: recargar lista para el modal de dependencias
       allTasks = await API.getProjectTasks(id);
       renderProjectList();
-      document.getElementById('toolbar-actions').style.display = 'flex';
-      const tal = document.getElementById('toolbar-actions-left');
-      if (tal) tal.style.display = 'block';
+      showMainUI();
     } catch (e) { toast('Error al cargar tareas', 'error'); }
+  }
+
+  function showMainUI() {
+    document.getElementById('toolbar-actions').style.display = 'flex';
+    const fb = document.getElementById('filter-bar');
+    if (fb) fb.style.display = 'flex';
+    const sb = document.getElementById('status-bar');
+    if (sb) sb.style.display = 'flex';
+    populateFilterDropdowns();
+  }
+
+  function populateFilterDropdowns() {
+    // Responsable
+    const fResp = document.getElementById('filter-responsable');
+    if (fResp) {
+      const current = fResp.value;
+      fResp.innerHTML = '<option value="">Responsable \u25bc</option>';
+      responsables.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.correo;
+        opt.textContent = r.nombre;
+        fResp.appendChild(opt);
+      });
+      fResp.value = current;
+    }
+    // Proyecto
+    const fProj = document.getElementById('filter-proyecto');
+    if (fProj) {
+      const current = fProj.value;
+      fProj.innerHTML = '<option value="">Proyecto \u25bc</option>';
+      projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.nombre_proyecto;
+        opt.textContent = p.nombre_proyecto;
+        fProj.appendChild(opt);
+      });
+      fProj.value = current;
+    }
   }
 
   /* ── Task Modal ─────────────────────────────────────────── */
@@ -821,6 +855,42 @@ window.UI = (() => {
     if (btnExportExcel) btnExportExcel.addEventListener('click', () => { Exports.exportExcel(); document.getElementById('export-menu')?.classList.remove('open'); });
     const btnExportCsv = document.getElementById('btn-export-csv');
     if (btnExportCsv) btnExportCsv.addEventListener('click', () => { Exports.exportCSV(); document.getElementById('export-menu')?.classList.remove('open'); });
+
+    // Filter bar
+    const applyFilters = () => { if (window.gantt) gantt.render(); };
+    const fSearch = document.getElementById('filter-search');
+    const fEstado = document.getElementById('filter-estado');
+    const fResp   = document.getElementById('filter-responsable');
+    const fProj   = document.getElementById('filter-proyecto');
+    if (fSearch) fSearch.addEventListener('input', applyFilters);
+    if (fEstado) fEstado.addEventListener('change', applyFilters);
+    if (fResp)   fResp.addEventListener('change', applyFilters);
+    if (fProj)   fProj.addEventListener('change', applyFilters);
+    const btnClear = document.getElementById('btn-filter-clear');
+    if (btnClear) btnClear.addEventListener('click', () => {
+      if (fSearch) fSearch.value = '';
+      if (fEstado) fEstado.value = '';
+      if (fResp) fResp.value = '';
+      if (fProj) fProj.value = '';
+      applyFilters();
+    });
+
+    // Gantt filter hook
+    if (window.gantt) {
+      gantt.attachEvent('onBeforeTaskDisplay', (id, task) => {
+        const search = (document.getElementById('filter-search')?.value || '').toLowerCase();
+        const estado = document.getElementById('filter-estado')?.value || '';
+        const resp   = document.getElementById('filter-responsable')?.value || '';
+        const proj   = document.getElementById('filter-proyecto')?.value || '';
+
+        if (search && !(task.text || '').toLowerCase().includes(search)) return false;
+        if (estado && task._estado !== estado) return false;
+        if (resp && task.responsable !== resp) return false;
+        if (proj && (task._projectName || '') !== proj) return false;
+
+        return true;
+      });
+    }
 
     // Guardar proyecto
     document.getElementById('btn-save-project').addEventListener('click', saveProject);
