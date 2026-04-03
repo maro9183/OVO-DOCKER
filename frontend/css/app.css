@@ -453,11 +453,12 @@ body {
 
 /* ── Badges (Estado de tareas) ───────────────────────────── */
 .badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
+  display: inline-block;
+  vertical-align: middle;
+  padding: 3px 8px;
   border-radius: 12px;
   font-size: 10px;
+  line-height: normal;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -468,6 +469,22 @@ body {
 .badge-finalizada { background: rgba(16,185,129,0.15); color: #34d399; }
 .badge-retrasada { background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.3); }
 .badge-bloqueada { background: transparent; color: #cbd5e1; border-color: var(--border); }
+
+/* ── Gantt Typography Overrides ──────────────────────────── */
+.gantt_grid_data .gantt_cell, .gantt_grid_scale .gantt_grid_head_cell, .gantt_task_scale .gantt_scale_cell, .gantt_task_content {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+.gantt_grid_data .gantt_cell {
+  color: var(--text) !important;
+  font-size: 12px !important;
+}
+.gantt_grid_scale .gantt_grid_head_cell {
+  font-weight: 600 !important;
+  color: var(--text-muted) !important;
+  font-size: 11px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
 /* All-projects special sidebar item */
 .all-projects-item {
