@@ -814,9 +814,37 @@ window.UI = (() => {
       document.getElementById('label-avance').textContent = `${Math.round(+e.target.value)}%`;
     });
 
-    // Botones toolbar
-    document.getElementById('btn-new-task').addEventListener('click', () => openTaskModal(null));
-    document.getElementById('btn-new-project').addEventListener('click', openProjectModal);
+    // Botones toolbar y dropdown "Nuevo"
+    const btnNewDropdown = document.getElementById('btn-new-dropdown');
+    const newDropdownMenu = document.getElementById('new-dropdown-menu');
+    if (btnNewDropdown && newDropdownMenu) {
+      btnNewDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        newDropdownMenu.style.display = newDropdownMenu.style.display === 'none' ? 'block' : 'none';
+      });
+      document.addEventListener('click', () => {
+        newDropdownMenu.style.display = 'none';
+      });
+    }
+
+    const btnNewTaskDropdown = document.getElementById('btn-new-task-dropdown');
+    if (btnNewTaskDropdown) {
+      btnNewTaskDropdown.addEventListener('click', () => {
+        if(newDropdownMenu) newDropdownMenu.style.display = 'none';
+        openTaskModal(null);
+      });
+    }
+
+    const btnNewTaskTb = document.getElementById('btn-new-task');
+    if (btnNewTaskTb) btnNewTaskTb.addEventListener('click', () => openTaskModal(null));
+
+    const btnNewProject = document.getElementById('btn-new-project');
+    if (btnNewProject) {
+      btnNewProject.addEventListener('click', () => {
+        if(newDropdownMenu) newDropdownMenu.style.display = 'none';
+        openProjectModal();
+      });
+    }
 
     const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
     if (btnToggleSidebar) {
@@ -884,7 +912,19 @@ window.UI = (() => {
         const proj   = document.getElementById('filter-proyecto')?.value || '';
 
         if (search && !(task.text || '').toLowerCase().includes(search)) return false;
-        if (estado && task._estado !== estado) return false;
+
+        // Estado filter: "Retrasada" is a calculated state (start <= today, 0% progress)
+        if (estado) {
+          if (estado === 'Retrasada') {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const tStart = new Date(task.start_date); tStart.setHours(0,0,0,0);
+            const isDelayed = (tStart <= today && (task.progress || 0) === 0 && task._estado !== 'Finalizada');
+            if (!isDelayed) return false;
+          } else if (task._estado !== estado) {
+            return false;
+          }
+        }
+
         if (resp && task.responsable !== resp) return false;
         if (proj && (task._projectName || '') !== proj) return false;
 

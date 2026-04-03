@@ -406,6 +406,27 @@ window.GanttApp = (() => {
           delayed++;
         }
 
+        // Blocked: Not completed, and at least one predecessor is not completed
+        if (p < 100 && t._estado !== 'Finalizada') {
+          if (t.$target && t.$target.length > 0) {
+            let isBlocked = false;
+            for (let linkId of t.$target) {
+              if (gantt.isLinkExists(linkId)) {
+                const link = gantt.getLink(linkId);
+                if (gantt.isTaskExists(link.source)) {
+                  const pred = gantt.getTask(link.source);
+                  const predP = Math.round(pred.progress * 100);
+                  if (predP < 100 && pred._estado !== 'Finalizada') {
+                    isBlocked = true;
+                    break;
+                  }
+                }
+              }
+            }
+            if (isBlocked) blocked++;
+          }
+        }
+
         // Track upcoming milestones (tasks starting soon, within 30 days)
         const daysUntil = Math.ceil((tStart - today) / 86400000);
         if (daysUntil > 0 && daysUntil <= 60 && p === 0) {
