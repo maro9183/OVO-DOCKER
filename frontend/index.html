@@ -231,14 +231,14 @@
       </div>
       <div style="padding: 12px 16px;">
         <div class="new-dropdown-wrapper" style="position:relative;">
-          <button class="btn btn-primary btn-block btn-sm" id="btn-new-dropdown">
+          <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-dropdown">
             ＋ Nuevo ▼
           </button>
-          <div class="new-dropdown-menu" id="new-dropdown-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--card); border:1px solid var(--indigo); border-radius:var(--radius); box-shadow:var(--shadow-lg); z-index:500; overflow:hidden; display:flex; flex-direction:column; gap:2px; padding:2px;">
-            <button class="btn btn-primary btn-block btn-sm" id="btn-new-task-dropdown" style="justify-content:flex-start; padding-left:12px;">
+          <div class="new-dropdown-menu" id="new-dropdown-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--card); border:1px solid var(--indigo); border-radius:var(--radius); box-shadow:var(--shadow-lg); z-index:500; overflow:hidden; flex-direction:column; gap:4px; padding:6px;">
+            <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-task-dropdown" style="justify-content:center;">
               ＋ Nueva Tarea
             </button>
-            <button class="btn btn-primary btn-block btn-sm" id="btn-new-project" style="justify-content:flex-start; padding-left:12px;">
+            <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-project" style="justify-content:center;">
               ＋ Nuevo Proyecto
             </button>
           </div>
@@ -402,7 +402,7 @@
           <select class="filter-select" id="filter-proyecto">
             <option value="">Proyecto</option>
           </select>
-          <button class="btn btn-ghost btn-sm" id="btn-filter-clear" title="Limpiar filtros">Deshacer Filtro</button>
+          <button class="btn btn-ghost btn-sm btn-pill" id="btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600;" title="Limpiar filtros">Deshacer Filtro</button>
         </div>
       </div>
 

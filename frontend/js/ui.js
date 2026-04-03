@@ -820,7 +820,7 @@ window.UI = (() => {
     if (btnNewDropdown && newDropdownMenu) {
       btnNewDropdown.addEventListener('click', (e) => {
         e.stopPropagation();
-        newDropdownMenu.style.display = newDropdownMenu.style.display === 'none' ? 'block' : 'none';
+        newDropdownMenu.style.display = newDropdownMenu.style.display === 'none' ? 'flex' : 'none';
       });
       document.addEventListener('click', () => {
         newDropdownMenu.style.display = 'none';
