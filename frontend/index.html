@@ -277,7 +277,8 @@
         <div class="toolbar-left">
           <button class="btn btn-ghost btn-sm" id="btn-toggle-sidebar" title="Ocultar Menú" style="font-size:16px;padding:2px 8px;">≡</button>
           <h1 class="project-title" id="project-title">MENÚ</h1>
-          <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-grid" title="Bascular Lista de Tareas" style="margin-left: 8px; border:1px solid var(--border-light);">≡ Lista de Tareas</button>
+          <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-kpi" title="Mostrar/Ocultar Resumen" style="margin-left: 8px; border:1px solid var(--border-light);">KPI</button>
+          <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-grid" title="Bascular Lista de Tareas" style="margin-left: 8px; border:1px solid var(--border-light);">≡ Tareas</button>
           <span class="project-badge" id="project-badge" style="display:none"></span>
         </div>
         <div class="toolbar-right toolbar-actions" id="toolbar-actions" style="display:none">
@@ -319,7 +320,7 @@
       </div>
 
       <!-- Summary strip (KPIs) -->
-      <div class="summary-strip">
+      <div class="summary-strip hidden-summary">
         <div class="stat-card stat-card-date">
           <div class="stat-icon" style="background:#22d3ee20">🚀</div>
           <div class="stat-info">
@@ -403,11 +404,7 @@
       <!-- Filter Bar -->
       <div class="filter-bar" id="filter-bar" style="display:none">
         <div class="filter-bar-left" style="width: 100%; display: flex; gap: 8px; align-items:center;">
-          <button class="btn btn-ghost btn-sm btn-pill btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap;" title="Limpiar filtros">Deshacer Filtro</button>
-          <div class="filter-search" style="flex:1;">
-            <span class="filter-search-icon">🔍</span>
-            <input type="text" id="filter-search" placeholder="Buscar tareas..." class="filter-input" style="width:100%">
-          </div>
+          <!-- Row 1 (on mobile) -->
           <div class="filter-custom-select" style="position:relative;" id="custom-estado-wrapper">
             <input type="hidden" id="filter-estado" value="">
             <button class="filter-select" id="btn-filter-estado" style="display:flex;align-items:center;justify-content:center;min-width:100px;">
@@ -428,6 +425,13 @@
           <select class="filter-select" id="filter-proyecto">
             <option value="">Proyecto</option>
           </select>
+          
+          <!-- Row 2 (on mobile) -->
+          <div class="filter-search" style="flex:1;">
+            <span class="filter-search-icon">🔍</span>
+            <input type="text" id="filter-search" placeholder="Buscar..." class="filter-input" style="width:100%">
+          </div>
+          <button class="btn btn-ghost btn-sm btn-pill btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap;" title="Limpiar filtros">Limpiar Filtros</button>
         </div>
       </div>
 
@@ -441,7 +445,7 @@
       </div>
 
       <!-- Status Bar (bottom) -->
-      <div class="status-bar" id="status-bar" style="display:none">
+      <div class="status-bar hidden-summary" id="status-bar" style="display:none">
         <div class="status-section status-risk clickable" id="status-click-risk" title="Filtrar Retrasadas">
           <div class="status-header">
             <span class="status-title">PROYECTOS EN RIESGO</span>

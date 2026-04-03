@@ -576,7 +576,7 @@ window.UI = (() => {
         recursos.push(r);
         toast('Recurso creado', 'success');
       }
-      document.getElementById('modal-recurso').classList.add('hidden');
+      document.getElementById('modal-recurso').classList.remove('hidden');
       // Volver al panel de ajustes actualizado
       renderConfigLists();
       document.getElementById('modal-config').classList.remove('hidden');
@@ -851,20 +851,29 @@ window.UI = (() => {
       btnToggleGrid.addEventListener('click', () => {
         const cs = gantt.config.show_grid;
         gantt.config.show_grid = !cs;
-        btnToggleGrid.textContent = !cs ? 'Ocultar Lista de Tareas' : '≡ Lista de Tareas';
+        btnToggleGrid.textContent = !cs ? 'Ocultar Tareas' : '≡ Tareas';
         
         if (!cs) {
           btnToggleGrid.classList.add('btn-primary', 'active');
           btnToggleGrid.classList.remove('btn-ghost');
-          // Collapse all tasks when opening grid
-          gantt.eachTask(t => { 
-            if(gantt.hasChild(t.id)) gantt.close(t.id); 
-          });
         } else {
           btnToggleGrid.classList.remove('btn-primary', 'active');
           btnToggleGrid.classList.add('btn-ghost');
         }
         gantt.render();
+      });
+    }
+
+    const btnToggleKpi = document.getElementById('btn-toggle-kpi');
+    if (btnToggleKpi) {
+      btnToggleKpi.addEventListener('click', () => {
+        const strip = document.querySelector('.summary-strip');
+        const sbar  = document.getElementById('status-bar');
+        const isHidden = strip.classList.toggle('hidden-summary');
+        if (sbar) sbar.classList.toggle('hidden-summary', isHidden);
+        btnToggleKpi.classList.toggle('active', !isHidden);
+        // Ajustar altura gantt (CSS detectará el cambio de espacio si usamos calc adecuadamente, pero renderizamos para seguridad)
+        setTimeout(() => { if (window.gantt) gantt.render(); }, 100);
       });
     }
 
