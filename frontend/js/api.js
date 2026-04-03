@@ -50,6 +50,12 @@ window.API = (() => {
     updateResponsable: (id, d)  => req('PUT', `/responsables/${id}`, d),
     deleteResponsable: (id)     => req('DELETE', `/responsables/${id}`),
 
+    // Subresponsables (Teams)
+    getSubresponsables: ()      => req('GET', '/subresponsables'),
+    createSubresp:     (d)      => req('POST', '/subresponsables', d),
+    updateSubresp:     (id, d)  => req('PUT', `/subresponsables/${id}`, d),
+    deleteSubresp:     (id)     => req('DELETE', `/subresponsables/${id}`),
+
     // Notes
     getNotes:          (tid)    => req('GET',    `/tasks/${tid}/notes`),
     createNote:        (d)      => req('POST',   '/notes', d),

@@ -28,9 +28,19 @@ CREATE TABLE IF NOT EXISTS responsables (
   foto    VARCHAR(500)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS subresponsables (
+  id_subresp INT AUTO_INCREMENT PRIMARY KEY,
+  id_lead    INT NOT NULL,
+  nombre     VARCHAR(255) NOT NULL,
+  correo     VARCHAR(255) UNIQUE NOT NULL,
+  FOREIGN KEY (id_lead) REFERENCES responsables(id_resp) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS tareas (
   id_tarea                INT AUTO_INCREMENT PRIMARY KEY,
   id_proyecto             INT NOT NULL,
+  id_parent               INT DEFAULT NULL,
+  id_subresp              INT DEFAULT NULL,
   tarea                   VARCHAR(100),
   descripcion             TEXT,
   fecha_inicio            DATE,
@@ -49,7 +59,9 @@ CREATE TABLE IF NOT EXISTS tareas (
   fecha_iniciada          DATETIME,
   fecha_finalizada        DATETIME,
   tipo_dias               ENUM('calendario','laboral') DEFAULT 'calendario',
-  FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto) ON DELETE CASCADE
+  FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto) ON DELETE CASCADE,
+  FOREIGN KEY (id_parent)   REFERENCES tareas(id_tarea)       ON DELETE CASCADE,
+  FOREIGN KEY (id_subresp)  REFERENCES subresponsables(id_subresp) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS notas (

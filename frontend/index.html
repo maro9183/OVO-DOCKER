@@ -393,23 +393,35 @@
       <div class="modal-body">
         <div class="form-grid">
 
-          <!-- Nombre -->
-          <div class="form-group col-span-2">
-            <label class="form-label" for="field-tarea">Nombre de la tarea *</label>
-            <input class="form-control" id="field-tarea" type="text"
-              placeholder="Ej: Cimientos, Instalación eléctrica…">
+          <!-- Código -->
+          <div class="form-group col-span-2" id="group-tarea-cod" style="display:none">
+            <label class="form-label" for="field-tarea">Código / Referencia (T00x)</label>
+            <input class="form-control" id="field-tarea" type="text" placeholder="Ej: T001, G15…">
           </div>
 
-          <!-- Descripción -->
+          <!-- Nombre (Es el campo descripcion en la DB) -->
           <div class="form-group col-span-2">
-            <label class="form-label" for="field-descripcion">Descripción</label>
-            <textarea class="form-control" id="field-descripcion" rows="2" placeholder="Detalle opcional…"></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:4px">
+              <label class="form-label" for="field-descripcion" style="margin-bottom:0">Nombre de la Tarea (Descripción) *</label>
+              <button class="btn btn-ghost btn-sm" id="btn-open-notes-quick" style="padding:0 8px; font-size:10px; color:var(--indigo)">
+                📝 Ver/Agregar Notas de Detalle
+              </button>
+            </div>
+            <textarea class="form-control" id="field-descripcion" rows="2" placeholder="Ej: Cimientos, Instalación eléctrica…"></textarea>
           </div>
 
           <!-- Proyecto -->
           <div class="form-group col-span-2">
             <label class="form-label" for="field-proyecto">Proyecto *</label>
             <select class="form-control" id="field-proyecto"></select>
+          </div>
+
+          <!-- Tarea Padre (Jerarquía) -->
+          <div class="form-group col-span-2">
+            <label class="form-label" for="field-parent">Tarea Padre (opcional para subtareas)</label>
+            <select class="form-control" id="field-parent">
+              <option value="">-- Tarea principal (sin padre) --</option>
+            </select>
           </div>
 
           <!-- Fecha inicio -->
@@ -446,13 +458,25 @@
           </div>
 
           <!-- Responsable -->
-          <div class="form-group col-span-2">
-            <label class="form-label" for="field-responsable">Responsable</label>
+          <div class="form-group col-span-2" style="margin-bottom:0">
+            <label class="form-label" for="field-responsable">Responsable Líder</label>
             <div style="display:flex;gap:8px">
               <select class="form-control" id="field-responsable">
                 <option value="">Seleccionar responsable...</option>
               </select>
               <button class="btn btn-ghost" id="btn-add-responsable" title="Nuevo Responsable"
+                style="padding:4px 8px">＋</button>
+            </div>
+          </div>
+
+          <!-- Subresponsable (Miembro del equipo) -->
+          <div class="form-group col-span-2" id="group-subresponsable" style="display:none">
+            <label class="form-label" for="field-subresp">Miembro del Equipo (Subresponsable)</label>
+            <div style="display:flex;gap:8px">
+              <select class="form-control" id="field-subresp">
+                <option value="">Seleccionar miembro...</option>
+              </select>
+              <button class="btn btn-ghost" id="btn-add-subresp-quick" title="Nuevo Miembro"
                 style="padding:4px 8px">＋</button>
             </div>
           </div>
@@ -597,6 +621,31 @@
     </div>
   </div>
 
+  <!-- ══════════════ MODAL: SUBRESPONSABLE ══════════════ -->
+  <div class="modal-overlay hidden" id="modal-subresp">
+    <div class="modal-box" style="max-width:400px">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-subresp-title">Nuevo Miembro del Equipo</span>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="field-sub-lead-id">
+        <div class="form-group">
+          <label class="form-label" for="field-sub-nombre">Nombre completo *</label>
+          <input class="form-control" id="field-sub-nombre" type="text">
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label" for="field-sub-correo">Correo electrónico *</label>
+          <input class="form-control" id="field-sub-correo" type="email">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close-modal>Cancelar</button>
+        <button class="btn btn-primary" id="btn-save-subresp">Guardar Miembro</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════════════ MODAL: RECURSO ══════════════ -->
   <div class="modal-overlay hidden" id="modal-recurso" style="z-index:110">
     <div class="modal-box">
@@ -648,10 +697,18 @@
         </div>
 
         <div id="tab-responsables" class="config-tab-content" style="padding:20px 24px; flex:1; overflow-y:auto;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Listado de Líderes y Equipos</span>
+            <button class="btn btn-primary btn-sm" id="btn-add-responsable-config" style="padding:4px 10px; font-size:11px;">＋ Nuevo Responsable</button>
+          </div>
           <div id="config-responsables-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
 
         <div id="tab-recursos" class="config-tab-content hidden" style="padding:20px 24px; flex:1; overflow-y:auto;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Inventario de Recursos</span>
+            <button class="btn btn-primary btn-sm" id="btn-add-recurso-config" style="padding:4px 10px; font-size:11px;">＋ Nuevo Recurso</button>
+          </div>
           <div id="config-recursos-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
       </div>

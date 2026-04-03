@@ -4,9 +4,13 @@
 window.UI = (() => {
   let projects       = [];
   let responsables   = [];
+  let subresponsables = [];
   let recursos       = [];
   let allTasks       = []; // tareas del proyecto activo
   let editingTaskId  = null;
+  let editingResponsableId = null;
+  let editingSubrespId = null;
+  let editingRecursoId = null;
   let notesTaskId    = null;
 
   /* ── Toast ─────────────────────────────────────────────── */
@@ -99,25 +103,38 @@ window.UI = (() => {
   }
 
   /* ── Task Modal ─────────────────────────────────────────── */
-  function openTaskModal(ganttTask) {
-    // ganttTask puede ser objeto del gantt (edición) o null (nueva tarea)
-    editingTaskId = ganttTask ? ganttTask.id : null;
-    const raw     = ganttTask ? ganttTask._raw : null;
+  function openTaskModal(param) {
+    // param puede ser id (number) o ganttTask (object del dhtmlx)
+    let task_id = null;
+    let ganttTask = null;
+    if (param && typeof param === 'object') {
+       ganttTask = param;
+       task_id = ganttTask.id;
+    } else {
+       task_id = param;
+    }
 
+    editingTaskId = task_id;
+    const raw = editingTaskId ? allTasks.find(t => t.id_tarea == editingTaskId) : null;
+    
     document.getElementById('modal-task-title').textContent = editingTaskId ? 'Editar Tarea' : 'Nueva Tarea';
     document.getElementById('btn-delete-task').style.display = editingTaskId ? 'block' : 'none';
 
-    // Rellenar campos
     const f = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
 
     f('field-tarea',       raw?.tarea        || '');
     f('field-descripcion', raw?.descripcion  || '');
-    // Para fecha y duración usamos el estado actual del gantt (post-drag) en lugar del _raw
-    // El ganttTask.start_date y ganttTask.end_date nos dan el ancho real. Calculamos días lógicos.
-    const fmt = ganttTask ? gantt.date.date_to_str('%Y-%m-%d') : null;
-    f('field-fecha-inicio', ganttTask ? fmt(ganttTask.start_date) : (raw?.fecha_inicio || today()));
-    
-    let dVal = raw?.duracion_dias || 1;
+    f('field-costo',       raw?.costo_tarea  || 0);
+
+    // Fecha inicio: priorizar drag del gantt si existe
+    let startVal = raw?.fecha_inicio || today();
+    if (ganttTask && ganttTask.start_date) {
+      startVal = gantt.date.date_to_str('%Y-%m-%d')(ganttTask.start_date);
+    }
+    f('field-fecha-inicio', startVal);
+
+    // Duración: priorizar drag del gantt
+    let durVal = raw?.duracion_dias || 1;
     if (ganttTask && ganttTask.start_date && ganttTask.end_date) {
       let bDays = 0;
       let cd = new Date(ganttTask.start_date);
@@ -126,47 +143,103 @@ window.UI = (() => {
         if (raw?.tipo_dias !== 'laboral' || cd.getDay() !== 0) bDays++;
         cd.setDate(cd.getDate() + 1);
       }
-      dVal = Math.max(1, bDays);
+      durVal = Math.max(1, bDays);
     }
-    f('field-duracion', dVal);
-    f('field-costo', raw?.costo_tarea || 0);
+    f('field-duracion', durVal);
 
-    // responsable
-    const respSel = document.getElementById('field-responsable');
-    if (respSel) {
-      respSel.innerHTML = '<option value="">Seleccionar responsable...</option>' + 
-        responsables.map(r => `<option value="${r.correo}" ${raw?.responsable === r.correo ? 'selected' : ''}>${r.nombre} (${r.correo})</option>`).join('');
-    }
-
-    // recursos
-    renderRecursosSelect(raw?.recursos || '');
-
-    // tipo_dias
-    const tipo = raw?.tipo_dias || 'calendario';
-    document.querySelectorAll('input[name="tipo_dias"]').forEach(r => { r.checked = r.value === tipo; });
-
-    // avance
+    // Avance
     const avance = parseFloat(raw?.avance || 0);
-    document.getElementById('field-avance').value = avance;
+    f('field-avance', avance);
     document.getElementById('label-avance').textContent = `${Math.round(avance)}%`;
+    document.getElementById('label-avance-r').textContent = `${Math.round(avance)}%`;
 
-    // proyecto
+    // Proyecto
     const projSel = document.getElementById('field-proyecto');
     projSel.innerHTML = projects.map(p =>
       `<option value="${p.id_proyecto}" ${raw?.id_proyecto == p.id_proyecto ? 'selected' : ''}>${p.nombre_proyecto}</option>`
     ).join('');
     if (!editingTaskId) projSel.value = GanttApp.getCurrentProjectId() || projects[0]?.id_proyecto || '';
 
-    // dependencias
-    renderDependenciasSelect(raw?.dependencias || '', projSel.value);
+    // Tarea Padre (Filtrada por proyecto)
+    function updateParentSelect(projectId, selectedParentId = null) {
+      const parentSel = document.getElementById('field-parent');
+      parentSel.innerHTML = '<option value="">-- Tarea principal (sin padre) --</option>';
+      allTasks.forEach(t => {
+        if (editingTaskId && t.id_tarea == editingTaskId) return;
+        if (t.id_proyecto != projectId) return; // SOLO TAREAS DEL MISMO PROYECTO
+        
+        const opt = document.createElement('option');
+        opt.value = t.id_tarea;
+        opt.textContent = t.descripcion || "(Sin nombre)";
+        parentSel.appendChild(opt);
+      });
+      parentSel.value = selectedParentId || '';
+    }
+
+    const currentProjId = raw?.id_proyecto || projSel.value;
+    updateParentSelect(currentProjId, raw?.id_parent);
+
+    const parentSel = document.getElementById('field-parent');
+    parentSel.onchange = () => {
+      const pId = parentSel.value;
+      renderDependenciasSelect('', projSel.value, pId);
+      
+      // Herencia de responsable y equipo desde el padre
+      if (pId) {
+        const parentTask = allTasks.find(t => t.id_tarea == pId);
+        if (parentTask && parentTask.responsable) {
+          const respSel = document.getElementById('field-responsable');
+          respSel.value = parentTask.responsable;
+          const selectedOpt = respSel.options[respSel.selectedIndex];
+          const leadId = selectedOpt ? selectedOpt.dataset.id : null;
+          updateSubrespSelect(leadId, parentTask.id_subresp);
+        }
+      }
+    };
+
+    // Responsable y Equipo
+    const respSel = document.getElementById('field-responsable');
+    respSel.innerHTML = '<option value="">Seleccionar responsable...</option>';
+    responsables.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.correo;
+      opt.dataset.id = r.id_resp;
+      opt.textContent = `${r.nombre} (${r.correo})`;
+      respSel.appendChild(opt);
+    });
+    respSel.value = raw?.responsable || '';
+
+    respSel.onchange = () => {
+      const selectedOpt = respSel.options[respSel.selectedIndex];
+      const leadId = selectedOpt ? selectedOpt.dataset.id : null;
+      updateSubrespSelect(leadId);
+    };
     
-    // Al cambiar proyecto, actualizar lista de dependencias (se borra la selección previa)
+    // Poblar subresponsable
+    const lead = responsables.find(r => r.correo === raw?.responsable);
+    updateSubrespSelect(lead ? lead.id_resp : null, raw?.id_subresp);
+
+    // Tipo días
+    const tipo = raw?.tipo_dias || 'calendario';
+    document.querySelectorAll('input[name="tipo_dias"]').forEach(r => { r.checked = r.value === tipo; });
+
+    renderRecursosSelect(raw?.recursos || '');
+    renderDependenciasSelect(raw?.dependencias || '', projSel.value, raw?.id_parent || '');
+    
     projSel.onchange = () => {
-      renderDependenciasSelect('', projSel.value);
+      renderDependenciasSelect('', projSel.value, '');
+      updateParentSelect(projSel.value, ''); // Actualizar padres al cambiar proyecto
     };
 
     document.getElementById('modal-task').classList.remove('hidden');
     document.getElementById('field-tarea').focus();
+  }
+
+  function updateSubrespSelect(leadId, selectedId = null) {
+    const sel = document.getElementById('field-subresp');
+    const team = subresponsables.filter(s => s.id_lead == leadId);
+    sel.innerHTML = '<option value="">-- Sin subresponsable --</option>' +
+      team.map(s => `<option value="${s.id_subresp}" ${s.id_subresp == selectedId ? 'selected' : ''}>${s.nombre}</option>`).join('');
   }
 
   function renderRecursosSelect(selected) {
@@ -184,18 +257,24 @@ window.UI = (() => {
       </label>`).join('');
   }
 
-  function renderDependenciasSelect(selected, projectId) {
+  function renderDependenciasSelect(selected, projectId, parentId) {
     const wrap = document.getElementById('deps-wrap');
     const selIds = (selected || '').split(',').map(d => d.trim()).filter(Boolean);
-    const available = allTasks.filter(t => t.id_tarea != editingTaskId && t.id_proyecto == projectId);
+    const pId = parentId ? parseInt(parentId) : null;
+    
+    const available = allTasks.filter(t => 
+      t.id_tarea != editingTaskId && 
+      t.id_proyecto == projectId &&
+      (t.id_parent == pId || (!t.id_parent && !pId))
+    );
     if (!available.length) {
-      wrap.innerHTML = '<span style="color:var(--text-dim);font-size:11px">No hay otras tareas</span>';
+      wrap.innerHTML = '<span style="color:var(--text-dim);font-size:11px">No hay otras tareas en este nivel</span>';
       return;
     }
     wrap.innerHTML = available.map(t => `
       <label class="radio-option" style="margin-bottom:4px;cursor:pointer">
         <input type="checkbox" name="dep_check" value="${t.id_tarea}" ${selIds.includes(String(t.id_tarea)) ? 'checked' : ''}>
-        <span>${t.tarea}</span>
+        <span>${t.descripcion || t.tarea}</span>
       </label>`).join('');
   }
 
@@ -205,7 +284,9 @@ window.UI = (() => {
     const recIds   = [...document.querySelectorAll('input[name="rec_check"]:checked')].map(c => c.value);
     return {
       id_proyecto:   +document.getElementById('field-proyecto').value,
-      tarea:          document.getElementById('field-tarea').value.trim(),
+      id_parent:     document.getElementById('field-parent').value ? +document.getElementById('field-parent').value : null,
+      id_subresp:    document.getElementById('field-subresp').value ? +document.getElementById('field-subresp').value : null,
+      tarea:          document.getElementById('field-tarea').value.trim() || document.getElementById('field-descripcion').value.trim().substring(0, 50),
       descripcion:    document.getElementById('field-descripcion').value.trim() || null,
       fecha_inicio:   document.getElementById('field-fecha-inicio').value,
       duracion_dias:  +document.getElementById('field-duracion').value || 1,
@@ -220,7 +301,7 @@ window.UI = (() => {
 
   async function saveTask() {
     const data = getFormData();
-    if (!data.tarea) { toast('El nombre de la tarea es requerido', 'error'); return; }
+    if (!data.descripcion) { toast('El nombre de la tarea es requerido', 'error'); return; }
 
     const btn = document.getElementById('btn-save-task');
     btn.disabled = true;
@@ -228,7 +309,6 @@ window.UI = (() => {
       if (editingTaskId) {
         const r = await API.updateTask(editingTaskId, data);
         allTasks = allTasks.map(t => t.id_tarea == editingTaskId ? r.task : t);
-        // Actualizar la barra principal y todas las tareas propagadas
         GanttApp.applyAllUpdated(r.updatedTasks);
         toast('Tarea actualizada', 'success');
       } else {
@@ -284,9 +364,17 @@ window.UI = (() => {
 
   /* ── Notes Modal ────────────────────────────────────────── */
   async function openNotesModal(taskId) {
-    notesTaskId = taskId;
-    const task = allTasks.find(t => t.id_tarea == taskId) || {};
-    document.getElementById('notes-task-name').textContent = task.tarea || `Tarea #${taskId}`;
+    editingNotesTaskId = taskId;
+    const t = allTasks.find(x => x.id_tarea == taskId);
+    document.getElementById('notes-task-name').textContent = t ? (t.descripcion || t.tarea) : 'Tarea';
+    
+    // Auto-completar autor con usuario logueado
+    const user = Auth.getUser();
+    if (user) {
+      document.getElementById('field-nota-autor').value = user.nombre || '';
+      document.getElementById('field-nota-autor').readOnly = true;
+    }
+
     document.getElementById('modal-notes').classList.remove('hidden');
     await refreshNotes();
   }
@@ -295,7 +383,7 @@ window.UI = (() => {
     const list = document.getElementById('notes-list');
     list.innerHTML = '<div style="color:var(--text-dim);font-size:11px">Cargando...</div>';
     try {
-      const notes = await API.getNotes(notesTaskId);
+      const notes = await API.getNotes(editingNotesTaskId);
       if (!notes.length) {
         list.innerHTML = '<div style="color:var(--text-dim);font-size:11px">Sin notas todavía.</div>';
         return;
@@ -318,10 +406,14 @@ window.UI = (() => {
     const link   = document.getElementById('field-nota-link').value.trim();
     if (!nota) { toast('Escribí una nota primero', 'error'); return; }
     try {
-      await API.createNote({ tarea: notesTaskId, nota, autor: autor || null, link: link || null });
+      await API.createNote({ tarea: editingNotesTaskId, nota, autor: autor || null, link: link || null });
       document.getElementById('field-nota').value = '';
       document.getElementById('field-nota-link').value = '';
-      await refreshNotes();
+      
+      const tid = editingNotesTaskId;
+      document.getElementById('modal-notes').classList.add('hidden');
+      openTaskModal(tid);
+      
       toast('Nota guardada', 'success');
     } catch (e) { toast(e.error || 'Error al guardar nota', 'error'); }
   }
@@ -365,9 +457,6 @@ window.UI = (() => {
   }
 
   /* ── Modals Responsable & Recurso ───────────────────────── */
-  let editingResponsableId = null;
-  let editingRecursoId = null;
-
   function openResponsableModal() {
     editingResponsableId = null;
     document.getElementById('field-resp-nombre').value = '';
@@ -471,15 +560,34 @@ window.UI = (() => {
     const listResp = document.getElementById('config-responsables-list');
     listResp.innerHTML = responsables.length === 0 
       ? '<div style="color:var(--text-dim);font-size:11px">Sin responsables</div>'
-      : responsables.map(r => `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius)">
-          <div style="flex:1">
-            <div style="font-weight:600;font-size:12px">${escHtml(r.nombre)}</div>
-            <div style="font-size:10px;color:var(--text-muted)">${escHtml(r.correo)}</div>
+      : responsables.map(r => {
+        const team = subresponsables.filter(s => s.id_lead == r.id_resp);
+        return `
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-header);border-bottom:1px solid var(--border)">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:13px;color:var(--primary-light)">${escHtml(r.nombre)} (Líder)</div>
+              <div style="font-size:10px;color:var(--text-muted)">${escHtml(r.correo)}</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="UI.openSubrespModal(${r.id_resp})" title="Agregar miembro al equipo">＋ Equipo</button>
+            <button class="btn btn-ghost btn-sm" onclick="UI.editResponsable(${r.id_resp})">✏️</button>
+            <button class="btn btn-ghost btn-danger btn-sm" onclick="UI.deleteResponsable(${r.id_resp})">🗑</button>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); UI.editResponsable(${r.id_resp})">✏️</button>
-          <button class="btn btn-ghost btn-danger btn-sm" onclick="event.stopPropagation(); UI.deleteResponsable(${r.id_resp})">🗑</button>
-        </div>`).join('');
+          <div style="padding:8px 12px;background:var(--bg)">
+            ${team.length === 0 
+              ? '<div style="font-size:10px;color:var(--text-dim);font-style:italic">Equipo sin miembros</div>' 
+              : team.map(m => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border-light)">
+                  <div style="font-size:11px">• ${escHtml(m.nombre)} <span style="color:var(--text-dim)">(${escHtml(m.correo)})</span></div>
+                  <div>
+                    <button class="btn btn-ghost btn-sm" style="padding:0 4px" onclick="UI.editSubresp(${m.id_subresp})">✏️</button>
+                    <button class="btn btn-ghost btn-danger btn-sm" style="padding:0 4px" onclick="UI.deleteSubresp(${m.id_subresp})">🗑</button>
+                  </div>
+                </div>
+              `).join('')}
+          </div>
+        </div>`;
+      }).join('');
 
     const listRec = document.getElementById('config-recursos-list');
     listRec.innerHTML = recursos.length === 0 
@@ -544,6 +652,82 @@ window.UI = (() => {
     } catch(e) { toast('Error al eliminar', 'error'); }
   }
 
+  function openSubrespModal(leadId, subId = null) {
+    editingSubrespId = subId;
+    document.getElementById('field-sub-lead-id').value = leadId;
+    
+    if (subId) {
+      const s = subresponsables.find(x => x.id_subresp == subId);
+      document.getElementById('field-sub-nombre').value = s.nombre;
+      document.getElementById('field-sub-correo').value = s.correo;
+    } else {
+      document.getElementById('field-sub-nombre').value = '';
+      document.getElementById('field-sub-correo').value = '';
+    }
+    document.getElementById('modal-config').classList.add('hidden');
+    document.getElementById('modal-subresp').classList.remove('hidden');
+  }
+
+  async function saveSubresp() {
+    const leadId = document.getElementById('field-sub-lead-id').value;
+    const data = {
+      id_lead: parseInt(leadId),
+      nombre: document.getElementById('field-sub-nombre').value.trim(),
+      correo: document.getElementById('field-sub-correo').value.trim()
+    };
+    
+    if (!data.nombre || !data.correo) { toast('Campos requeridos', 'error'); return; }
+
+    try {
+      if (editingSubrespId) {
+        const r = await API.updateSubresp(editingSubrespId, data);
+        subresponsables = subresponsables.map(x => x.id_subresp == editingSubrespId ? r : x);
+      } else {
+        const r = await API.createSubresp(data);
+        subresponsables.push(r);
+      }
+      document.getElementById('modal-subresp').classList.add('hidden');
+      renderConfigLists();
+      document.getElementById('modal-config').classList.remove('hidden');
+      toast('Miembro guardado', 'success');
+    } catch (e) { toast('Error al guardar', 'error'); }
+  }
+
+  async function reqDeleteSubresp(id) {
+    const agreed = await showConfirm('Eliminar Miembro', '¿Eliminar este miembro?', 'Eliminar');
+    if (!agreed) return;
+    try {
+      await API.deleteSubresp(id);
+      subresponsables = subresponsables.filter(x => x.id_subresp != id);
+      renderConfigLists();
+    } catch (e) { toast('Error al eliminar', 'error'); }
+  }
+
+  function updateSubrespSelect(leadId, selectedSubId = null) {
+    const wrap = document.getElementById('group-subresponsable');
+    const sel = document.getElementById('field-subresp');
+    
+    if (!leadId) {
+      wrap.style.display = 'none';
+      sel.innerHTML = '<option value="">Seleccionar miembro...</option>';
+      return;
+    }
+
+    const members = subresponsables.filter(s => s.id_lead == leadId);
+    if (members.length === 0) {
+      wrap.style.display = 'none';
+    } else {
+      wrap.style.display = 'block';
+      sel.innerHTML = '<option value="">-- Responsable Líder únicamente --</option>';
+      members.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id_subresp;
+        opt.textContent = m.nombre;
+        sel.appendChild(opt);
+      });
+      if (selectedSubId) sel.value = selectedSubId;
+    }
+  }
 
   /* ── Helpers ─────────────────────────────────────────────── */
   function today() {
@@ -560,29 +744,29 @@ window.UI = (() => {
 
   /* ── Init ───────────────────────────────────────────────── */
   async function init() {
-    // Cargar responsables y recursos para autocompletado
+    // Cargar responsables, subresponsables y recursos
     try { 
       responsables = await API.getResponsables();
+      subresponsables = await API.getSubresponsables(); // Nueva llamada API
       recursos = await API.getResources();
     } catch(_) {}
 
-    // Wiring modal cerrar — cada botón cierra SU propio modal, no todos
+    // Wiring modal cerrar
     document.querySelectorAll('.modal-close, [data-close-modal]').forEach(el =>
       el.addEventListener('click', () => {
         const modal = el.closest('.modal-overlay');
         if (modal) {
           modal.classList.add('hidden');
           if (modal.id === 'modal-task') editingTaskId = null;
-          // Si se cancela la edición de un responsable/recurso que venía de Ajustes
-          if ((modal.id === 'modal-responsable' && editingResponsableId) ||
-              (modal.id === 'modal-recurso'     && editingRecursoId)) {
+          // Si se cancela subresp, volver a config
+          if (modal.id === 'modal-subresp') {
             document.getElementById('modal-config').classList.remove('hidden');
           }
-          if (modal.id === 'modal-responsable') editingResponsableId = null;
-          if (modal.id === 'modal-recurso')     editingRecursoId = null;
         }
       })
     );
+
+    document.getElementById('btn-save-subresp').addEventListener('click', saveSubresp);
 
     // Progress slider
     document.getElementById('field-avance').addEventListener('input', e => {
@@ -603,7 +787,18 @@ window.UI = (() => {
 
     // Guardar tarea
     document.getElementById('btn-save-task').addEventListener('click', saveTask);
-    document.getElementById('field-tarea').addEventListener('keyup', e => { if (e.key === 'Enter') saveTask(); });
+    
+    // Abrir notas rápidamente desde el modal de tarea
+    document.getElementById('btn-open-notes-quick').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!editingTaskId) {
+        toast('Guardá la tarea primero para añadir notas detalladas', 'warning');
+        return;
+      }
+      const tid = editingTaskId;
+      closeTaskModal();
+      openNotesModal(tid);
+    });
 
     // Eliminar tarea (desde modal)
     document.getElementById('btn-delete-task').addEventListener('click', () => {
@@ -854,6 +1049,13 @@ window.UI = (() => {
     openNotesModal, deleteNote, selectProject, renderProjectList,
     editResponsable, deleteResponsable: reqDeleteResponsable,
     editRecurso, deleteRecurso: reqDeleteRecurso,
+    openSubrespModal,
+    saveSubresp,
+    editSubresp: (id) => {
+      const s = subresponsables.find(x => x.id_subresp == id);
+      if (s) openSubrespModal(s.id_lead, id);
+    },
+    deleteSubresp: reqDeleteSubresp,
     editUser, deleteUser
   };
 })();

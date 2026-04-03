@@ -3,6 +3,7 @@ const router  = express.Router();
 const { getPool }                    = require('../db');
 const { calcFechaFin, calcEstado, formatDate, parseDate } = require('../logic/dates');
 const { detectCycle, propagateTasks } = require('../logic/propagate');
+const { recalcParentBounds } = require('../logic/recalc');
 const { requirePermission, requireProjectAccess } = require('../middleware/auth');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -37,7 +38,12 @@ async function calcEffectiveStart(conn, dependencias, fecha_inicio, tipo_dias) {
 // ─── GET /api/tasks ──────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    let sql = 'SELECT * FROM tareas ORDER BY fecha_inicio, id_tarea';
+    let sql = `SELECT t.*, 
+               (SELECT COUNT(*) FROM notas n WHERE n.tarea = t.id_tarea) as note_count,
+               sr.nombre as subresponsable_nombre
+               FROM tareas t 
+               LEFT JOIN subresponsables sr ON t.id_subresp = sr.id_subresp
+               ORDER BY t.fecha_inicio, t.id_tarea`;
     let params = [];
     
     // Filtro por usuario
@@ -45,7 +51,13 @@ router.get('/', async (req, res) => {
       const allowedIds = req.user.proyectos.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
       if (allowedIds.length === 0) return res.json([]); // Ningun proyecto disponible
       
-      sql = `SELECT * FROM tareas WHERE id_proyecto IN (${allowedIds.join(',')}) ORDER BY fecha_inicio, id_tarea`;
+      sql = `SELECT t.*, 
+             (SELECT COUNT(*) FROM notas n WHERE n.tarea = t.id_tarea) as note_count,
+             sr.nombre as subresponsable_nombre
+             FROM tareas t 
+             LEFT JOIN subresponsables sr ON t.id_subresp = sr.id_subresp
+             WHERE t.id_proyecto IN (${allowedIds.join(',')}) 
+             ORDER BY t.fecha_inicio, t.id_tarea`;
     }
     
     const [rows] = await getPool().execute(sql, params);
@@ -81,7 +93,8 @@ router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, 
     await conn.beginTransaction();
 
     const {
-      id_proyecto, tarea, descripcion, fecha_inicio,
+      id_proyecto, id_parent = null, id_subresp = null,
+      tarea, descripcion, fecha_inicio,
       duracion_dias = 1, responsable = null,
       avance = 0, dependencias = '', recursos = '',
       tipo_dias = 'calendario', notificado = 0,
@@ -99,20 +112,26 @@ router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, 
 
     const [result] = await conn.execute(
       `INSERT INTO tareas
-         (id_proyecto, tarea, descripcion, fecha_inicio, fecha_inicio_proyectada,
+         (id_proyecto, id_parent, id_subresp, tarea, descripcion, fecha_inicio, fecha_inicio_proyectada,
           duracion_dias, fecha_fin, estado, responsable, avance,
           dependencias, recursos, tipo_dias, notificado, costo_tarea)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [id_proyecto, tarea, descripcion || null, fecha_inicio, fechaInicioProy,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [id_proyecto, id_parent, id_subresp, tarea, descripcion || null, fecha_inicio, fechaInicioProy,
        duracion_dias, fechaFin, estado, responsable,
        avance, dependencias || null, recursos || null, tipo_dias, notificado, costo_tarea]
     );
+
+    // Si tiene padre, recalcular sus fechas
+    let updatedSummary = [];
+    if (id_parent) {
+      updatedSummary = await recalcParentBounds(conn, id_parent);
+    }
 
     await conn.commit();
     const [newTask] = await getPool().execute(
       'SELECT * FROM tareas WHERE id_tarea = ?', [result.insertId]
     );
-    res.status(201).json({ task: newTask[0], updatedTasks: [newTask[0]] });
+    res.status(201).json({ task: newTask[0], updatedTasks: [newTask[0], ...updatedSummary] });
   } catch (err) {
     await conn.rollback();
     res.status(500).json({ error: err.message });
@@ -150,7 +169,7 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
 
     await conn.execute(
       `UPDATE tareas SET
-         id_proyecto=?, tarea=?, descripcion=?,
+         id_proyecto=?, id_parent=?, id_subresp=?, tarea=?, descripcion=?,
          fecha_inicio=?, fecha_inicio_proyectada=?,
          duracion_dias=?, fecha_fin=?,
          estado=?, responsable=?, avance=?,
@@ -160,7 +179,7 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
          costo_tarea=?
        WHERE id_tarea=?`,
       [
-        task.id_proyecto, task.tarea, task.descripcion || null,
+        task.id_proyecto, task.id_parent || null, task.id_subresp || null, task.tarea, task.descripcion || null,
         task.fecha_inicio, fechaInicioProy,
         task.duracion_dias, fechaFin,
         estado, task.responsable || null, task.avance,
@@ -172,11 +191,23 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
       ]
     );
 
+    // Recalcular resúmenes si cambió el padre o si es una subtarea
+    let summaryTasks = [];
+    if (task.id_parent) {
+      const up = await recalcParentBounds(conn, task.id_parent);
+      summaryTasks.push(...up);
+    }
+    // Si el padre cambió, recalcular también el antiguo
+    if (cur[0].id_parent && cur[0].id_parent !== task.id_parent) {
+      const up = await recalcParentBounds(conn, cur[0].id_parent);
+      summaryTasks.push(...up);
+    }
+
     const updatedTasks = await propagateTasks(conn, parseInt(id));
     const [updatedRow] = await conn.execute('SELECT * FROM tareas WHERE id_tarea = ?', [id]);
 
     await conn.commit();
-    res.json({ task: updatedRow[0], updatedTasks: [updatedRow[0], ...updatedTasks] });
+    res.json({ task: updatedRow[0], updatedTasks: [updatedRow[0], ...updatedTasks, ...summaryTasks] });
   } catch (err) {
     await conn.rollback();
     res.status(500).json({ error: err.message });
@@ -189,6 +220,10 @@ router.delete('/:id', requirePermission('DELETE'), async (req, res) => {
   try {
     await conn.beginTransaction();
     const { id } = req.params;
+
+    // Necesitamos el id_parent antes de borrar para recalcular
+    const [toDel] = await conn.execute('SELECT id_parent FROM tareas WHERE id_tarea = ?', [id]);
+    const oldParentId = toDel.length ? toDel[0].id_parent : null;
 
     // Limpiar este ID de los campos dependencias de otras tareas
     await conn.execute(
@@ -204,6 +239,12 @@ router.delete('/:id', requirePermission('DELETE'), async (req, res) => {
     );
 
     await conn.execute('DELETE FROM tareas WHERE id_tarea = ?', [id]);
+
+    // Recalcular padre si existía
+    if (oldParentId) {
+      await recalcParentBounds(conn, oldParentId);
+    }
+
     await conn.commit();
     res.json({ success: true });
   } catch (err) {

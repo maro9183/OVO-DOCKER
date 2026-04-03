@@ -8,6 +8,7 @@ const tasksRouter      = require('./routes/tasks');
 const projectsRouter   = require('./routes/projects');
 const resourcesRouter  = require('./routes/resources');
 const responsablesRouter = require('./routes/responsables');
+const subresponsablesRouter = require('./routes/subresponsables');
 const notesRouter      = require('./routes/notes');
 const authRouter       = require('./routes/auth');
 const usersRouter      = require('./routes/users');
@@ -30,6 +31,7 @@ app.use('/api/tasks',       requireAuth, tasksRouter);
 app.use('/api/projects',    requireAuth, projectsRouter);
 app.use('/api/resources',   requireAuth, resourcesRouter);
 app.use('/api/responsables', requireAuth, responsablesRouter);
+app.use('/api/subresponsables', requireAuth, subresponsablesRouter);
 app.use('/api/notes',       requireAuth, notesRouter);
 
 // Fallback → index.html

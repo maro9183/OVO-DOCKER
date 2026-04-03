@@ -63,6 +63,8 @@ window.GanttApp = (() => {
     gantt.config.fit_tasks     = false;
     gantt.config.open_tree_initially = true;
     gantt.config.show_markers  = true;
+    gantt.config.order_branch = true;
+    gantt.config.order_branch_free = true;
 
     // Idioma español simplificado
     gantt.locale.labels.section_description = 'Descripción';
@@ -79,13 +81,22 @@ window.GanttApp = (() => {
     /* ── Columns ──────────────────────────────────────────── */
     gantt.config.columns = [
       {
-        name: 'text', label: 'Tarea', tree: true, width: 230,
+        name: 'text', label: 'Nombre de la Tarea', tree: true, width: 280,
         template: t => {
           const today = new Date(); today.setHours(0,0,0,0);
           const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
           const isDelayed = (tStart <= today && (t.progress || 0) === 0 && t._estado !== 'Finalizada');
-          const dot = isDelayed ? '<span class="delayed-dot" title="Tarea retrasada: debió iniciar o iniciar hoy y tiene 0% avance"></span>' : '';
-          return `<div style="display:inline-flex;align-items:center">${dot}<span title="${t.text || ''}" style="font-weight:500">${t.text || ''}</span></div>`;
+          const color = isDelayed ? 'var(--red)' : 'inherit';
+          const title = isDelayed ? 'Tarea retrasada: debió iniciar o iniciar hoy y tiene 0% avance' : (t.text || '');
+          const noteIcon = (t.note_count > 0) ? `<span title="Tiene ${t.note_count} notas internas" style="margin-left: 6px; cursor: pointer; opacity: 0.8;">📝</span>` : '';
+          return `<div style="display:inline-flex;align-items:center"><span title="${title}" style="font-weight:600; color:${color}">${t.text || ''}</span>${noteIcon}</div>`;
+        }
+      },
+      {
+        name: 'sub_col', label: 'Subs', width: 45, align: 'center',
+        template: t => {
+          const count = gantt.getChildren(t.id).length;
+          return count > 0 ? `<span class="badge" style="background:var(--bg-header);color:var(--text-dim);font-size:10px;padding:2px 6px">${count}</span>` : '';
         }
       },
       {
@@ -298,18 +309,21 @@ window.GanttApp = (() => {
 
     return {
       id:           t.id_tarea,
-      text:         t.descripcion || t.tarea,
+      parent:       t.id_parent || 0,
+      text:         t.descripcion || "Tarea sin nombre", // Ocultar códigos T00x del Gantt
       start_date:   startStr || t.fecha_inicio,
       end_date:     endStr,
       duration:     endStr ? undefined : (parseInt(t.duracion_dias) || 1),
       progress:     parseFloat(t.avance || 0) / 100,
       color:        color || '#6366f1',
-      // extra campos para templates y edición
+      // extra campos
+      _tarea_cod:   t.tarea,
       _estado:      t.estado,
       _tipo_dias:   t.tipo_dias,
       _dependencias: t.dependencias || '',
       _costo:       parseFloat(t.costo_tarea) || 0,
-      responsable:  t.responsable,
+      responsable:  (t.id_parent && t.subresponsable_nombre) ? t.subresponsable_nombre : (t.responsable || ''),
+      note_count:   t.note_count || 0,
       // project info for exports
       _projectName: projInfo.nombre || '',
       _projectCode: projInfo.codigo || '',
