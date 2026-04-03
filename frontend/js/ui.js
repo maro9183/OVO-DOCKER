@@ -385,17 +385,20 @@ window.UI = (() => {
     try {
       const notes = await API.getNotes(editingNotesTaskId);
       if (!notes.length) {
-        list.innerHTML = '<div style="color:var(--text-dim);font-size:11px">Sin notas todavía.</div>';
+        list.innerHTML = '<div style="color:var(--text-dim);padding:20px;text-align:center;">Sin notas todavía.</div>';
         return;
       }
       list.innerHTML = notes.map(n => `
         <div class="note-item" data-id="${n.id_nota}">
           <div class="note-meta">
-            ${n.autor || 'Sin autor'} — ${fmtDate(n.fecha_hora)}
-            <button class="note-delete" onclick="UI.deleteNote(${n.id_nota})">×</button>
+            <span class="note-author">${escHtml(n.autor || 'Anónimo')}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span>${fmtDate(n.fecha_hora)}</span>
+              <button class="note-delete" onclick="UI.deleteNote(${n.id_nota})" title="Eliminar nota">×</button>
+            </div>
           </div>
           <div class="note-text">${escHtml(n.nota || '')}</div>
-          ${n.link ? `<a href="${n.link}" target="_blank" style="font-size:10px;color:var(--cyan)">🔗 ${n.link}</a>` : ''}
+          ${n.link ? `<div style="margin-top:8px"><a href="${n.link}" target="_blank" style="font-size:11px;color:var(--cyan);text-decoration:none;display:flex;align-items:center;gap:4px;"><span>🔗</span> ${n.link}</a></div>` : ''}
         </div>`).join('');
     } catch (e) { list.innerHTML = '<div style="color:var(--red)">Error al cargar notas</div>'; }
   }
@@ -889,18 +892,19 @@ window.UI = (() => {
 
     // Poblar información de usuario en la barra lateral
     const elName = document.getElementById('sidebar-user-name');
-    const elEmail = document.getElementById('sidebar-user-email');
+    const elRole = document.getElementById('sidebar-role-label');
     if (elName) elName.textContent = user.nombre || 'Usuario';
-    if (elEmail) elEmail.textContent = user.email || '';
 
-    if (!user.es_admin) {
+    if (user.es_admin) {
+      if (elRole) elRole.style.display = 'block';
+      document.getElementById('btn-admin-users').style.display = 'flex';
+    } else {
+      if (elRole) elRole.style.display = 'none';
       document.getElementById('btn-admin-users').style.display = 'none';
       if (!Auth.hasPerm('CREATE')) {
         document.getElementById('btn-new-project').style.display = 'none';
         document.getElementById('btn-new-task').style.display = 'none';
       }
-    } else {
-      document.getElementById('btn-admin-users').style.display = 'flex';
     }
   }
 

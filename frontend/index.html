@@ -221,13 +221,16 @@
     <!-- ══════════════ SIDEBAR ══════════════ -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="logo">
+        <div class="logo" style="margin-bottom: 20px;">
           <img src="/img/logo.png" class="logo-img" alt="OVOBRAND">
           <div>
             <div class="logo-text">OVOBRAND</div>
             <div class="logo-sub">3MGAS Project Management</div>
           </div>
         </div>
+        <button class="btn btn-primary btn-block btn-sm" id="btn-new-project">
+          ＋ Nuevo Proyecto
+        </button>
       </div>
 
       <div class="sidebar-section-title">Proyectos</div>
@@ -236,25 +239,19 @@
       </div>
 
       <div class="sidebar-footer">
-        <button class="btn btn-ghost btn-block btn-sm" id="btn-config">
-          ⚙️ Ajustes (Responsables / Recursos)
-        </button>
-        <button class="btn btn-ghost btn-block btn-sm" id="btn-admin-users" style="margin-top:6px; display:none">
-          👥 Administrar Usuarios
-        </button>
-        <button class="btn btn-ghost btn-block btn-sm" id="btn-new-project" style="margin-top:6px">
-          ＋ Nuevo Proyecto
-        </button>
-        
-        <div id="sidebar-user-info" style="margin-top:20px; padding-top:10px; border-top:1px solid var(--border); display:flex; align-items:center; gap:8px;">
-          <div style="width:28px; height:28px; border-radius:50%; background:var(--indigo); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px;">👤</div>
+        <div id="sidebar-user-info" style="padding-top:10px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px;">
+          <div style="width:32px; height:32px; border-radius:50%; background:var(--indigo); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">👤</div>
           <div style="flex:1; overflow:hidden;">
             <div id="sidebar-user-name" style="font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Usuario</div>
-            <div id="sidebar-user-email" style="font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">email</div>
+            <div id="sidebar-role-label" style="font-size:10px; color:var(--amber); font-weight: 500; display:none;">Administrador</div>
+          </div>
+          <div class="user-actions" style="display:flex; gap:4px;">
+            <button class="btn btn-ghost btn-sm icon-only" id="btn-config" title="Ajustes de Responsables / Recursos" style="padding:4px; font-size:14px;">👤</button>
+            <button class="btn btn-ghost btn-sm icon-only" id="btn-admin-users" title="Administrar Usuarios" style="padding:4px; font-size:14px; display:none;">⚙️</button>
           </div>
         </div>
 
-        <button class="btn btn-ghost btn-block btn-sm" id="btn-logout" style="margin-top:6px; color:var(--red); text-align:left; justify-content:flex-start; padding-left:12px;">
+        <button class="btn btn-ghost btn-block btn-sm" id="btn-logout" style="margin-top:10px; color:var(--text-muted); text-align:left; justify-content:flex-start; padding-left:12px; opacity:0.6;">
           ⏏ Cerrar Sesión
         </button>
       </div>
