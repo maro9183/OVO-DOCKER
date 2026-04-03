@@ -51,7 +51,7 @@ window.UI = (() => {
     let html = `
       <div class="all-projects-item ${isAll ? 'active' : ''}" id="btn-all-projects">
         <span class="all-projects-dot"></span>
-        <span class="project-name">Todos los Proyectos</span>
+        <span class="project-name">MENÚ</span>
       </div>`;
 
     html += projects.map(p => `
@@ -76,7 +76,7 @@ window.UI = (() => {
     document.getElementById('project-title').textContent = 'Cargando...';
     try {
       allTasks = await GanttApp.loadAllProjects();
-      document.getElementById('project-title').textContent = 'Todos los Proyectos';
+      document.getElementById('project-title').textContent = 'MENÚ';
       document.getElementById('project-badge').textContent = '';
       document.getElementById('project-badge').style.display = 'none';
       renderProjectList();
@@ -843,6 +843,23 @@ window.UI = (() => {
       btnNewProject.addEventListener('click', () => {
         if(newDropdownMenu) newDropdownMenu.style.display = 'none';
         openProjectModal();
+      });
+    }
+
+    const btnToggleGrid = document.getElementById('btn-toggle-grid');
+    if (btnToggleGrid) {
+      btnToggleGrid.addEventListener('click', () => {
+        const cs = gantt.config.show_grid;
+        gantt.config.show_grid = !cs;
+        btnToggleGrid.textContent = !cs ? 'Ocultar Lista de Tareas' : '≡ Lista de Tareas';
+        if (!cs) {
+          btnToggleGrid.classList.add('btn-primary', 'active');
+          btnToggleGrid.classList.remove('btn-ghost');
+        } else {
+          btnToggleGrid.classList.remove('btn-primary', 'active');
+          btnToggleGrid.classList.add('btn-ghost');
+        }
+        gantt.render();
       });
     }
 

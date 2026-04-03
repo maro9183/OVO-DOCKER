@@ -37,10 +37,11 @@ window.GanttApp = (() => {
       { unit: 'month', step: 1, format: '%F' }       // Enero, Febrero...
     ]
   };
-  let currentScale = 'week';
+  let currentScale = 'month';
 
   /* ── Configure gantt ─────────────────────────────────────── */
   function configure() {
+    gantt.config.show_grid = false;
     gantt.plugins({ tooltip: true, marker: true });
 
     gantt.config.date_format  = '%Y-%m-%d';
