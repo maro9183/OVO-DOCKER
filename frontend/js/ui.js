@@ -1091,19 +1091,15 @@ window.UI = (() => {
 
     // Poblar información de usuario en la barra lateral
     const elName = document.getElementById('sidebar-user-name');
-    const elRole = document.getElementById('sidebar-role-label');
-    const btnAdmin = document.getElementById('btn-admin-users');
-
     if (elName) elName.textContent = user.nombre || 'Usuario';
 
     console.log("[Auth] Session User:", user.nombre, "| Admin:", user.es_admin);
-
+    
+    // Usar clase en body para control de visibilidad robusto vía CSS
     if (user.es_admin) {
-      if (elRole) elRole.style.display = 'block';
-      if (btnAdmin) btnAdmin.style.display = 'flex';
+      document.body.classList.add('is-admin');
     } else {
-      if (elRole) elRole.style.display = 'none';
-      if (btnAdmin) btnAdmin.style.display = 'none';
+      document.body.classList.remove('is-admin');
       
       if (!Auth.hasPerm('CREATE')) {
         const btnNewProj = document.getElementById('btn-new-project');

@@ -103,6 +103,17 @@ body {
   padding: 16px 16px 8px;
 }
 
+/* ── Admin Protection ── */
+#btn-admin-users, #sidebar-role-label {
+  display: none !important;
+}
+body.is-admin #btn-admin-users {
+  display: flex !important;
+}
+body.is-admin #sidebar-role-label {
+  display: block !important;
+}
+
 .projects-list {
   flex: 1;
   overflow-y: auto;
