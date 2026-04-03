@@ -29,22 +29,26 @@ OVO2/
 
 ### 📊 Gestión de Tareas y Gantt
 - **Interactividad Total**: Drag & Drop para mover tareas, reescalar duraciones y establecer progreso.
-- **Propagación en Cascada**: El cambio en una tarea padre o predecesora ajusta automáticamente todo el cronograma, detectando y bloqueando ciclos infinitos.
+- **Inmersión Inmediata**: La grilla inicializa oculta con vista mensual y el panel izquierdo colapsado, priorizando 100% de la pantalla al diagrama de tiempo.
+- **Jerarquías Interconectadas**: Enlaces de progreso inteligentes calculan los estados de "Retrasada" y "Bloqueada" en tiempo real con sus respectivos badges visuales integrados.
 - **Calendarios Flexibles**: Posibilidad de elegir entre días **calendario** (7 días) o **laborales** (Lunes a Sábado) por cada tarea.
-- **Indicadores Visuales**: Ico de nota (📝) en la grilla y estados de avance automáticos.
+
+### 🎛 Dashboard y Control Operativo
+- **Métricas Híbridas**: Tarjetas KPIs (resumen) computan matemática paralela separando tareas troncales ("T:") de subtareas anidadas ("S:") optimizando espacio visual.
+- **Filtros Avanzados**: Componentes "Dropdown Custom" creados desde cero superan las limitaciones nativas de HTML, embebiendo badges y colores funcionales directamente en los menús desplegables.
 
 ### 👥 Recursos y Responsables
 - **Herencia de Liderazgo**: Las subtareas heredan automáticamente al responsable líder y su equipo.
 - **Gestión de Equipos**: Seguimiento detallado por líder y subresponsables.
-- **Cálculo de Costos**: Seguimiento financiero por tarea y totales proyectados/ejecutados por proyecto.
+- **Cálculo de Costos**: Seguimiento financiero por tarea y totales (costos proyectados vs costo aplicado al progreso) tabulados.
 
 ### 🔐 Seguridad y Administración
 - **Sistema de Auth**: Login seguro con gestión de sesiones.
 - **Permisos Granulares**: Roles de Administrador y Usuario con restricciones de creación/edición configurables.
-- **Gestión de Usuarios**: Panel administrativo para crear y gestionar usuarios y sus accesos a proyectos específicos.
+- **Gestión de Usuarios**: Panel administrativo para crear y gestionar usuarios y sus accesos.
 
 ### 📥 Exportación y Reportes
-- **Multi-formato**: Exportación nativa del diagrama a PDF.
+- **Multi-formato**: Exportación nativa del diagrama a PDF con configuración Premium.
 - **Datos**: Descarga de la planificación completa en formato Excel (.xlsx) y CSV.
 
 ## 🛠 Instalación y Arranque
