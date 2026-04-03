@@ -869,12 +869,47 @@ window.UI = (() => {
     }
 
     const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+
     if (btnToggleSidebar) {
       btnToggleSidebar.addEventListener('click', () => {
-        document.querySelector('.sidebar').classList.toggle('collapsed');
+        const collapsed = sidebar.classList.toggle('collapsed');
+        if (window.innerWidth < 768) {
+          if (!collapsed) {
+             overlay.classList.add('active');
+          } else {
+             overlay.classList.remove('active');
+          }
+        }
+        // Redimensionar gantt tras la animación
         setTimeout(() => { if (window.gantt) gantt.render(); }, 250);
       });
     }
+
+    if (overlay) {
+      overlay.addEventListener('click', () => {
+        sidebar.classList.add('collapsed');
+        overlay.classList.remove('active');
+        setTimeout(() => { if (window.gantt) gantt.render(); }, 250);
+      });
+    }
+
+    // Auto-colapsar sidebar en móviles al inicio
+    if (window.innerWidth < 768) {
+      sidebar.classList.add('collapsed');
+    }
+
+    // Cerrar sidebar al hacer clic en el contenido principal si estamos en móvil
+    document.querySelector('.main-content').addEventListener('click', (e) => {
+      // Si el clic viene del botón de menú, no hacer nada aquí (ya se maneja en su listener)
+      if (e.target.closest('#btn-toggle-sidebar')) return;
+      
+      if (window.innerWidth < 768 && !sidebar.classList.contains('collapsed')) {
+        sidebar.classList.add('collapsed');
+        if(overlay) overlay.classList.remove('active');
+      }
+    });
 
     // Guardar tarea
     document.getElementById('btn-save-task').addEventListener('click', saveTask);

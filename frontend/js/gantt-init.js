@@ -80,55 +80,44 @@ window.GanttApp = (() => {
 
     applyScale(currentScale);
 
+    const isMobile = window.innerWidth < 768;
+    
     /* ── Columns ──────────────────────────────────────────── */
     gantt.config.columns = [
       {
-        name: 'text', label: 'Nombre de la Tarea', tree: true, width: 280,
+        name: 'text', label: 'Tarea', tree: true, width: isMobile ? 180 : 250,
         template: t => {
           const today = new Date(); today.setHours(0,0,0,0);
           const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
           const isDelayed = (tStart <= today && (t.progress || 0) === 0 && t._estado !== 'Finalizada');
           const color = isDelayed ? 'var(--red)' : 'inherit';
-          const title = isDelayed ? 'Tarea retrasada: debió iniciar o iniciar hoy y tiene 0% avance' : (t.text || '');
-          return `<div style="display:inline-flex;align-items:center"><span title="${title}" style="font-weight:600; color:${color}">${t.text || ''}</span></div>`;
+          return `<span style="font-weight:600; color:${color}">${t.text || ''}</span>`;
         }
       },
       {
-        name: 'sub_col', label: 'Subs', width: 45, align: 'center',
+        name: 'sub_col', label: 'Subs', width: 45, align: 'center', hide: isMobile,
         template: t => {
           const count = gantt.getChildren(t.id).length;
           return count > 0 ? `<span class="badge" style="background:var(--bg-header);color:var(--text-dim);font-size:10px;padding:2px 6px">${count}</span>` : '';
         }
       },
       {
-        name: 'project_col', label: 'Proyecto', width: 120, align: 'left',
-        template: t => {
-          const name = t._projectName || '';
-          const color = t.color || '#6366f1';
-          if (!name) return '';
-          return `<span style="font-size:10px;font-weight:600;display:inline-flex;align-items:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${name}">
-            ${name}
-          </span>`;
-        }
+        name: 'project_col', label: 'Proyecto', width: 100, align: 'left', hide: isMobile,
+        template: t => `<span style="font-size:10px;font-weight:600;color:var(--text-dim)">${t._projectName || ''}</span>`
       },
       {
-        name: 'responsable', label: 'Responsable', width: 100, align: 'left',
+        name: 'responsable', label: 'Resp.', width: 80, align: 'left', hide: isMobile,
         template: t => {
           const r = t.responsable || '';
-          const name = r.includes('@') ? r.split('@')[0] : r;
-          return `<span style="font-size:11px;color:var(--text-muted)" title="${r}">${name || '—'}</span>`;
+          return `<span style="font-size:11px;color:var(--text-muted)">${r.split('@')[0] || '—'}</span>`;
         }
       },
       {
-        name: 'start_date', label: 'Inicio', width: 80, align: 'center',
+        name: 'start_date', label: 'Inicio', width: 80, align: 'center', hide: isMobile,
         template: t => t.start_date ? gantt.templates.date_grid(t.start_date) : '—'
       },
       {
-        name: 'duration_col', label: 'Días', width: 45, align: 'center',
-        template: t => t._raw?.duracion_dias || parseInt(t.duration) || 1
-      },
-      {
-        name: 'estado_col', label: 'Estado', width: 100, align: 'center',
+        name: 'estado_col', label: 'Estado', width: 90, align: 'center',
         template: t => estadoBadge(t)
       },
       {
@@ -137,13 +126,10 @@ window.GanttApp = (() => {
           if (t.note_count > 0) {
             return `
             <div style="display:flex; align-items:center; justify-content:center; height:100%;">
-              <div class="note-col-trigger" data-id="${t.id}" style="display:flex; justify-content:center; align-items:center; width:28px; height:28px; background:var(--indigo); color:#fff; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.2);" title="Ver ${t.note_count} nota(s) internas">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <div class="note-col-trigger" data-id="${t.id}" style="display:flex; justify-content:center; align-items:center; width:28px; height:28px; background:var(--indigo); color:#fff; border-radius:8px; cursor:pointer;" title="Notas">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                   <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                  <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
               </div>
             </div>

@@ -898,6 +898,119 @@ textarea.form-control { resize: vertical; min-height: 72px; }
 .notes-list { display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; margin-bottom: 20px; padding-right: 8px; }
 .note-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; position: relative; transition: transform 0.2s ease, box-shadow 0.2s ease; }
 .note-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--border-light); }
+
+/* ── Responsive Design ─────────────────────────────────────── */
+
+/* Tablets and below (< 1024px) */
+@media (max-width: 1024px) {
+  .summary-strip {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    height: auto;
+    padding: 12px;
+    gap: 12px;
+    overflow-x: hidden !important;
+  }
+  .stat-card {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 15px;
+  }
+  .stat-card:nth-child(2n) { border-right: none; }
+  .stat-card:nth-last-child(-n+2) { border-bottom: none; }
+}
+
+/* Smartphones and below (< 768px) */
+@media (max-width: 768px) {
+  .app-layout {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2000;
+    box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    background: var(--sidebar);
+    width: 260px;
+    min-width: 260px;
+    transition: transform var(--transition);
+    transform: translateX(0);
+  }
+
+  .sidebar.collapsed {
+    transform: translateX(-100%);
+    width: 260px; /* Keep width fixed, just translate it */
+    min-width: 260px;
+    opacity: 1;
+    border-right: 1px solid var(--border);
+  }
+
+  .main-content {
+    width: 100% !important;
+    flex: 1;
+  }
+
+  /* Toolbar buttons: hide text for space */
+  .toolbar-actions .btn .btn-text {
+    display: none;
+  }
+  .toolbar-actions .btn {
+    padding: 8px;
+    min-width: 38px;
+  }
+
+  /* Filter bar stacking */
+  .filter-bar-left {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  .filter-search {
+    width: 100% !important;
+    order: -1;
+  }
+  .filter-select {
+    flex: 1;
+    min-width: 110px;
+  }
+  .btn-filter-clear {
+    width: 100%;
+    margin-left: 0 !important;
+    order: 10;
+  }
+
+  /* Modals */
+  .modal-content {
+    width: 95% !important;
+    max-height: 95vh;
+    padding: 20px;
+  }
+  .form-group-row {
+    flex-direction: column !important;
+    gap: 15px !important;
+  }
+
+  /* Gantt specific */
+  #gantt_here {
+    height: calc(100vh - 250px) !important;
+  }
+}
+
+/* Extra small devices (< 480px) */
+@media (max-width: 480px) {
+  .summary-strip {
+    grid-template-columns: 1fr;
+  }
+  .stat-card {
+    border-right: none;
+  }
+  .stat-card:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+  }
+}
 .note-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 .note-author { font-weight: 600; color: var(--indigo); }
 .note-text { font-size: 13px; line-height: 1.5; color: var(--text); white-space: pre-wrap; }

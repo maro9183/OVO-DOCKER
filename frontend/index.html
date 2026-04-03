@@ -280,15 +280,15 @@
           <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-grid" title="Bascular Lista de Tareas" style="margin-left: 8px; border:1px solid var(--border-light);">≡ Lista de Tareas</button>
           <span class="project-badge" id="project-badge" style="display:none"></span>
         </div>
-        <div class="toolbar-right" id="toolbar-actions" style="display:none">
+        <div class="toolbar-right toolbar-actions" id="toolbar-actions" style="display:none">
           <div class="zoom-group">
-            <button class="btn btn-ghost btn-sm" id="btn-zoom-day" title="Ver por días">Día</button>
-            <button class="btn btn-ghost btn-sm" id="btn-zoom-week" title="Ver por semanas">Semana</button>
-            <button class="btn btn-primary btn-sm active" id="btn-zoom-month" title="Ver por meses">Mes</button>
+            <button class="btn btn-ghost btn-sm" id="btn-zoom-day" title="Ver por días">D</button>
+            <button class="btn btn-ghost btn-sm" id="btn-zoom-week" title="Ver por semanas">S</button>
+            <button class="btn btn-primary btn-sm active" id="btn-zoom-month" title="Ver por meses">M</button>
           </div>
-          <button class="btn btn-ghost btn-sm" id="btn-today">📍 Hoy</button>
+          <button class="btn btn-ghost btn-sm" id="btn-today" title="Ir a hoy">📍 <span>Hoy</span></button>
           <div class="export-wrapper">
-            <button class="btn btn-ghost btn-sm" id="btn-export" title="Exportar">▼ Exportar</button>
+            <button class="btn btn-ghost btn-sm" id="btn-export" title="Exportar"><span>▼ Exportar</span></button>
             <div class="export-menu" id="export-menu">
               <button class="export-menu-item" id="btn-export-pdf">
                 <span class="emi-icon" style="background:#ef444420;color:#ef4444">📄</span>
@@ -428,7 +428,6 @@
           <select class="filter-select" id="filter-proyecto">
             <option value="">Proyecto</option>
           </select>
-          <button class="btn btn-ghost btn-sm btn-pill btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap; margin-left: auto;" title="Limpiar filtros">Deshacer Filtro</button>
         </div>
       </div>
 
