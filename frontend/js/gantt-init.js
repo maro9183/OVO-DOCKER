@@ -494,7 +494,8 @@ window.GanttApp = (() => {
     currentScale = scale;
     gantt.config.scales = SCALES[scale];
     gantt.render();
-    document.getElementById('scale-label').textContent = { day:'Días', week:'Semanas', month:'Meses' }[scale];
+    const scaleEl = document.getElementById('scale-label');
+    if (scaleEl) scaleEl.textContent = { day:'Días', week:'Semanas', month:'Meses' }[scale];
   }
 
   /* ── Public API ──────────────────────────────────────────── */
