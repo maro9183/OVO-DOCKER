@@ -221,13 +221,15 @@
     <!-- ══════════════ SIDEBAR ══════════════ -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="logo" style="margin-bottom: 20px;">
+        <div class="logo">
           <img src="/img/logo.png" class="logo-img" alt="OVOBRAND">
           <div>
             <div class="logo-text">OVOBRAND</div>
             <div class="logo-sub">3MGAS Project Management</div>
           </div>
         </div>
+      </div>
+      <div style="padding: 12px 16px;">
         <button class="btn btn-primary btn-block btn-sm" id="btn-new-project">
           ＋ Nuevo Proyecto
         </button>
@@ -238,20 +240,20 @@
         <div style="padding:12px 10px;color:var(--text-dim);font-size:11px">Cargando...</div>
       </div>
 
-      <div class="sidebar-footer">
-        <div id="sidebar-user-info" style="padding-top:10px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px;">
-          <div style="width:32px; height:32px; border-radius:50%; background:var(--indigo); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">👤</div>
+      <div class="sidebar-footer" style="border-top:1px solid var(--border); padding: 16px 12px;">
+        <div id="sidebar-user-info" class="user-card" style="background:var(--card); border:1px solid var(--border-light); border-radius:var(--radius); padding:12px; margin-bottom:12px; display:flex; align-items:center; gap:10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+          <div style="width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg, var(--indigo), var(--cyan)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px; flex-shrink:0;">👤</div>
           <div style="flex:1; overflow:hidden;">
-            <div id="sidebar-user-name" style="font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Usuario</div>
+            <div id="sidebar-user-name" style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Usuario</div>
             <div id="sidebar-role-label" style="font-size:10px; color:var(--amber); font-weight: 500; display:none;">Administrador</div>
           </div>
           <div class="user-actions" style="display:flex; gap:4px;">
-            <button class="btn btn-ghost btn-sm icon-only" id="btn-config" title="Ajustes de Responsables / Recursos" style="padding:4px; font-size:14px;">👤</button>
-            <button class="btn btn-ghost btn-sm icon-only" id="btn-admin-users" title="Administrar Usuarios" style="padding:4px; font-size:14px; display:none;">⚙️</button>
+            <button class="btn btn-ghost btn-sm icon-only" id="btn-config" title="Ajustes" style="padding:4px; font-size:14px;">👤</button>
+            <button class="btn btn-ghost btn-sm icon-only" id="btn-admin-users" title="Usuarios" style="padding:4px; font-size:14px; display:none;">⚙️</button>
           </div>
         </div>
 
-        <button class="btn btn-ghost btn-block btn-sm" id="btn-logout" style="margin-top:10px; color:var(--text-muted); text-align:left; justify-content:flex-start; padding-left:12px; opacity:0.6;">
+        <button class="btn btn-ghost btn-block btn-sm" id="btn-logout" style="color:var(--red); text-align:left; justify-content:flex-start; padding-left:12px; font-weight:500;">
           ⏏ Cerrar Sesión
         </button>
       </div>
@@ -266,6 +268,9 @@
           <button class="btn btn-ghost btn-sm" id="btn-toggle-sidebar" title="Ocultar Menú" style="font-size:16px;padding:2px 8px;">≡</button>
           <h1 class="project-title" id="project-title">Seleccioná un proyecto</h1>
           <span class="project-badge" id="project-badge" style="display:none"></span>
+          <div id="toolbar-actions-left" style="display:none; margin-left: 15px;">
+            <button class="btn btn-primary btn-sm" id="btn-new-task">＋ Nueva Tarea</button>
+          </div>
         </div>
         <div class="toolbar-right" id="toolbar-actions" style="display:none">
           <button class="btn btn-ghost btn-sm" id="btn-toggle-grid" title="Ocultar Lista de Tareas">≡ Lista</button>
@@ -304,7 +309,6 @@
               </button>
             </div>
           </div>
-          <button class="btn btn-primary" id="btn-new-task">＋ Nueva Tarea</button>
         </div>
       </div>
 

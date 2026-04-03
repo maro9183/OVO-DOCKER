@@ -81,6 +81,8 @@ window.UI = (() => {
       document.getElementById('project-badge').style.display = 'none';
       renderProjectList();
       document.getElementById('toolbar-actions').style.display = 'flex';
+      const tal = document.getElementById('toolbar-actions-left');
+      if (tal) tal.style.display = 'block';
     } catch (e) { toast('Error al cargar proyectos', 'error'); console.error(e); }
   }
 
@@ -99,6 +101,8 @@ window.UI = (() => {
       allTasks = await API.getProjectTasks(id);
       renderProjectList();
       document.getElementById('toolbar-actions').style.display = 'flex';
+      const tal = document.getElementById('toolbar-actions-left');
+      if (tal) tal.style.display = 'block';
     } catch (e) { toast('Error al cargar tareas', 'error'); }
   }
 

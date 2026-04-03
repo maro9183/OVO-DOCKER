@@ -1,98 +1,86 @@
-# Gantt Tracker
+# OVOBRAND — 3MGAS Project Management
 
-Sistema interactivo de seguimiento de proyectos con diagrama de Gantt.
+Sistema corporativo de gestión de proyectos con diagrama de Gantt interactivo, persistencia en tiempo real y arquitectura robusta.
 
-## Stack
-- **Frontend**: HTML + Vanilla JS + dhtmlx-gantt (GPL)
-- **Backend**: Node.js + Express
-- **Base de datos**: MySQL 8
+## 🚀 Stack Tecnológico
+- **Frontend**: HTML5 Semántico + CSS3 (Variables & Glassmorphism) + Vanilla JS (ES6+).
+- **Gantt Core**: [dhtmlx-gantt](https://dhtmlx.com/docs/products/dhtmlxGantt/) (Versión GPL).
+- **Backend**: Node.js + Express.
+- **Base de Datos**: MySQL 8 (Gestión mediante Pool de conexiones y transacciones).
+- **Exportación**: Integración con servicios de PDF, Excel (xlsx) y CSV.
 
-## Estructura
-
-```
+## 🏗 Estructura del Proyecto
+```text
 OVO2/
-├── backend/          → API Node.js/Express
-│   ├── .env          → Credenciales DB (editar antes de arrancar)
-│   ├── server.js     → Entrada principal
-│   ├── db.js         → Pool MySQL + auto-creación de BD
-│   ├── logic/
-│   │   ├── dates.js      → Cálculo fechas (calendario / laboral)
-│   │   └── propagate.js  → Propagación cascada + detección de ciclos
-│   └── routes/
-│       ├── tasks.js
-│       ├── projects.js
-│       ├── resources.js
-│       ├── responsables.js
-│       └── notes.js
-├── frontend/         → HTML/CSS/JS estático servido por Express
-│   ├── index.html
-│   ├── css/app.css
-│   └── js/
-│       ├── api.js
-│       ├── gantt-init.js
-│       └── ui.js
-└── sql/schema.sql    → Schema de referencia (la BD se crea automáticamente)
+├── backend/              → API Node.js/Express
+│   ├── routes/           → Endpoints (tasks, projects, auth, users, etc.)
+│   ├── logic/            → Motores de propagación y cálculo de fechas
+│   ├── db.js             → Configuración Pool MySQL + Auto-Migración
+│   └── server.js         → Punto de entrada y Servidor Estático
+├── frontend/             → Aplicación SPA (Single Page Application)
+│   ├── index.html        → Estructura principal y Modales
+│   ├── css/app.css       → Sistema de diseño (Dark Mode Premium)
+│   ├── js/               → Lógica de UI, API, Inicialización del Gantt y Auth
+│   └── img/              → Assets de marca (Logo OVOBRAND)
+└── sql/schema.sql        → Referencia de base de datos
 ```
 
-## Instalación y arranque
+## ✨ Características Principales
 
-### 1. Configurar credenciales
-Editá `backend/.env`:
-```
+### 📊 Gestión de Tareas y Gantt
+- **Interactividad Total**: Drag & Drop para mover tareas, reescalar duraciones y establecer progreso.
+- **Propagación en Cascada**: El cambio en una tarea padre o predecesora ajusta automáticamente todo el cronograma, detectando y bloqueando ciclos infinitos.
+- **Calendarios Flexibles**: Posibilidad de elegir entre días **calendario** (7 días) o **laborales** (Lunes a Sábado) por cada tarea.
+- **Indicadores Visuales**: Ico de nota (📝) en la grilla y estados de avance automáticos.
+
+### 👥 Recursos y Responsables
+- **Herencia de Liderazgo**: Las subtareas heredan automáticamente al responsable líder y su equipo.
+- **Gestión de Equipos**: Seguimiento detallado por líder y subresponsables.
+- **Cálculo de Costos**: Seguimiento financiero por tarea y totales proyectados/ejecutados por proyecto.
+
+### 🔐 Seguridad y Administración
+- **Sistema de Auth**: Login seguro con gestión de sesiones.
+- **Permisos Granulares**: Roles de Administrador y Usuario con restricciones de creación/edición configurables.
+- **Gestión de Usuarios**: Panel administrativo para crear y gestionar usuarios y sus accesos a proyectos específicos.
+
+### 📥 Exportación y Reportes
+- **Multi-formato**: Exportación nativa del diagrama a PDF.
+- **Datos**: Descarga de la planificación completa en formato Excel (.xlsx) y CSV.
+
+## 🛠 Instalación y Arranque
+
+### 1. Requisitos
+- Node.js (v14+)
+- MySQL Server 8.0+
+
+### 2. Configurar Entorno
+Crea o edita `backend/.env` con tus credenciales:
+```env
 DB_HOST=localhost
-DB_PORT=3306
 DB_NAME=ovo2
 DB_USER=root
 DB_PASSWORD=tu_password
 PORT=3000
 ```
 
-### 2. Instalar dependencias
+### 3. Iniciar Sistema
 ```bash
 cd backend
 npm install
+npm run dev
 ```
+*Nota: La base de datos y las tablas se crean **automáticamente** al primer arranque.*
 
-### 3. Arrancar el servidor
-```bash
-npm start        # producción
-npm run dev      # desarrollo con hot-reload (nodemon)
-```
+## 🔌 API Endpoints (Resumen)
 
-La base de datos `ovo2` y todas las tablas **se crean automáticamente** al arrancar.
+| Categoría | Endpoints |
+|-----------|-----------|
+| **Auth** | `/api/auth/login`, `/api/auth/me` |
+| **Proyectos**| `GET /api/projects`, `POST /api/projects` |
+| **Tareas** | `GET/POST /api/tasks`, `PUT /api/tasks/:id`, `DELETE /api/tasks/:id` |
+| **Notas** | `GET /api/tasks/:id/notes`, `POST /api/notes`, `DELETE /api/notes/:id` |
+| **Config** | `/api/responsables`, `/api/subresponsables`, `/api/resources` |
+| **Admin** | `GET/POST/PUT /api/users` |
 
-### 4. Abrir en el navegador
-```
-http://localhost:3000
-```
-
-## Features
-
-- ✅ Diagrama de Gantt interactivo (drag & drop, resize, progress drag)
-- ✅ Creación / edición / eliminación de tareas
-- ✅ Dependencias Finish-to-Start con propagación en cascada
-- ✅ Detección y prevención de ciclos de dependencias
-- ✅ Por tarea: elección entre días **calendario** o **laborales (Lun-Sáb)**
-- ✅ Cálculo automático de `fecha_fin` y `fecha_inicio_proyectada`
-- ✅ Estados automáticos: No comenzada / En progreso / Finalizada
-- ✅ Gestión de proyectos con colores
-- ✅ Notas por tarea
-- ✅ Transacciones MySQL (consistencia)
-- ✅ Diseño dark premium responsive
-
-## API Endpoints
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | /api/projects | Lista proyectos |
-| POST | /api/projects | Crear proyecto |
-| GET | /api/projects/:id/tasks | Tareas de un proyecto |
-| GET | /api/tasks | Todas las tareas |
-| POST | /api/tasks | Crear tarea |
-| PUT | /api/tasks/:id | Actualizar + propagar |
-| DELETE | /api/tasks/:id | Eliminar tarea |
-| GET | /api/tasks/:id/notes | Notas de una tarea |
-| POST | /api/notes | Agregar nota |
-| DELETE | /api/notes/:id | Eliminar nota |
-| GET | /api/resources | Recursos |
-| GET | /api/responsables | Responsables |
+---
+*Desarrollado para la excelencia operativa en la gestión de proyectos de 3MGAS.*
