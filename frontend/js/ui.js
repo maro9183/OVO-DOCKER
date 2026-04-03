@@ -792,6 +792,23 @@ window.UI = (() => {
       recursos = await API.getResources();
     } catch(_) {}
 
+    // Actualizar UI según el usuario logueado
+    const currentUser = Auth.getUser();
+    if (currentUser) {
+      const elName = document.getElementById('sidebar-user-name');
+      const elRole = document.getElementById('sidebar-role-label');
+      const btnAdmin = document.getElementById('btn-admin-users');
+      
+      if (elName) elName.textContent = currentUser.nombre || 'Usuario';
+      if (currentUser.es_admin) {
+        if (elRole) elRole.style.display = 'block';
+        if (btnAdmin) btnAdmin.style.display = 'block';
+      } else {
+        if (elRole) elRole.style.display = 'none';
+        if (btnAdmin) btnAdmin.style.display = 'none';
+      }
+    }
+
     // Wiring modal cerrar
     document.querySelectorAll('.modal-close, [data-close-modal]').forEach(el =>
       el.addEventListener('click', () => {
