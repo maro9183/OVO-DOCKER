@@ -80,21 +80,19 @@ body {
   gap: 10px;
   margin-bottom: 4px;
 }
-.logo-icon {
+.logo-img {
   width: 32px; height: 32px;
-  background: linear-gradient(135deg, var(--indigo), var(--cyan));
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
+  object-fit: contain;
+  background: white; /* Give it a little contrast if it's on dark sidebar */
+  padding: 2px;
+  border-radius: 6px;
 }
 .logo-text {
   font-weight: 700;
   font-size: 15px;
-  background: linear-gradient(135deg, #fff, var(--cyan));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #fff;
 }
-.logo-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.logo-sub { font-size: 10px; color: #fff; opacity: 0.8; margin-top: 2px; }
 
 .sidebar-section-title {
   font-size: 10px;
