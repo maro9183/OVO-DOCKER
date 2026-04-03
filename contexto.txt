@@ -16,6 +16,7 @@ Sistema de seguimiento e interfaz de planificación (Project Management Dashboar
 
 ### 4. Reglas UX/UI
 - **Jerarquía y Foco**: Componentes estáticos opcionales ocultos en la inicialización (Sidebars y DataGrid) apuntando todo el primer view al mapa del proyecto.
+- **Seguridad de Interfaz**: Las herramientas de gestión crítica (botón de usuarios ⚙️ y etiqueta de rol "Administrador") solo se renderizan/muestran si el objeto de usuario activo posee la propiedad `es_admin: true`. Para usuarios estándar, estos elementos permanecen ocultos para simplificar la experiencia.
 - **Sistema de Color**: "Dark Mode Premium". Altos contrastes y mitigación de sombras difusas. Variables actualizadas para máxima lectura: textos atenuados iluminados (`--text-muted: #cbd5e1`, `--text-dim: #94a3b8`); acentos visuales y estados activos en `var(--indigo)` (`#6366f1`).
 - **Morfología Circular**: Envolventes visuales con `border-radius: 100px` (Botones Píldora / `.btn-pill`) reduciendo aristas vivas donde corresponda, para componentes interactuados frecuentemente.
 - **Estado Predictivo**: Controles con remarcado de estado activo explícito (El selector temporal de Mes/Día retiene clase CSS `btn-primary` para reflejar contexto constante al operador).

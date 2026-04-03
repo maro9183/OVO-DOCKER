@@ -792,23 +792,6 @@ window.UI = (() => {
       recursos = await API.getResources();
     } catch(_) {}
 
-    // Actualizar UI según el usuario logueado
-    const currentUser = Auth.getUser();
-    if (currentUser) {
-      const elName = document.getElementById('sidebar-user-name');
-      const elRole = document.getElementById('sidebar-role-label');
-      const btnAdmin = document.getElementById('btn-admin-users');
-      
-      if (elName) elName.textContent = currentUser.nombre || 'Usuario';
-      if (currentUser.es_admin) {
-        if (elRole) elRole.style.display = 'block';
-        if (btnAdmin) btnAdmin.style.display = 'block';
-      } else {
-        if (elRole) elRole.style.display = 'none';
-        if (btnAdmin) btnAdmin.style.display = 'none';
-      }
-    }
-
     // Wiring modal cerrar
     document.querySelectorAll('.modal-close, [data-close-modal]').forEach(el =>
       el.addEventListener('click', () => {
@@ -1109,17 +1092,27 @@ window.UI = (() => {
     // Poblar información de usuario en la barra lateral
     const elName = document.getElementById('sidebar-user-name');
     const elRole = document.getElementById('sidebar-role-label');
+    const btnAdmin = document.getElementById('btn-admin-users');
+
     if (elName) elName.textContent = user.nombre || 'Usuario';
+
+    console.log("[Auth] Session User:", user.nombre, "| Admin:", user.es_admin);
 
     if (user.es_admin) {
       if (elRole) elRole.style.display = 'block';
-      document.getElementById('btn-admin-users').style.display = 'flex';
+      if (btnAdmin) btnAdmin.style.display = 'flex';
     } else {
       if (elRole) elRole.style.display = 'none';
-      document.getElementById('btn-admin-users').style.display = 'none';
+      if (btnAdmin) btnAdmin.style.display = 'none';
+      
       if (!Auth.hasPerm('CREATE')) {
-        document.getElementById('btn-new-project').style.display = 'none';
-        document.getElementById('btn-new-task').style.display = 'none';
+        const btnNewProj = document.getElementById('btn-new-project');
+        const btnNewTask = document.getElementById('btn-new-task');
+        if (btnNewProj) btnNewProj.style.display = 'none';
+        if (btnNewTask) btnNewTask.style.display = 'none';
+        // También ocultar el botón general de "Nuevo" en el sidebar si no tiene permisos
+        const btnNewGroup = document.getElementById('btn-new-dropdown');
+        if (btnNewGroup) btnNewGroup.style.display = 'none';
       }
     }
   }
