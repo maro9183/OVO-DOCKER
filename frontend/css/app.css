@@ -746,6 +746,7 @@ textarea.form-control { resize: vertical; min-height: 72px; }
 .progress-wrap { display: flex; align-items: center; gap: 10px; }
 .progress-slider {
   -webkit-appearance: none;
+  appearance: none;
   flex: 1;
   height: 4px;
   border-radius: 99px;
@@ -754,6 +755,7 @@ textarea.form-control { resize: vertical; min-height: 72px; }
 }
 .progress-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 16px; height: 16px;
   border-radius: 50%;
   background: var(--indigo);
