@@ -582,6 +582,20 @@ window.GanttApp = (() => {
     gantt.render();
     const scaleEl = document.getElementById('scale-label');
     if (scaleEl) scaleEl.textContent = { day:'Días', week:'Semanas', month:'Meses' }[scale];
+    
+    // Update zoom buttons visual state
+    ['day', 'week', 'month'].forEach(s => {
+      const btn = document.getElementById('btn-zoom-' + s);
+      if (btn) {
+        if (s === scale) {
+          btn.classList.add('btn-primary', 'active');
+          btn.classList.remove('btn-ghost');
+        } else {
+          btn.classList.remove('btn-primary', 'active');
+          btn.classList.add('btn-ghost');
+        }
+      }
+    });
   }
 
   /* ── Public API ──────────────────────────────────────────── */
@@ -592,19 +606,11 @@ window.GanttApp = (() => {
     // Marker de hoy
     addTodayMarker();
 
-    // Toolbar: zoom
+      // Toolbar: zoom
     document.getElementById('btn-zoom-day').addEventListener('click',   () => applyScale('day'));
     document.getElementById('btn-zoom-week').addEventListener('click',  () => applyScale('week'));
     document.getElementById('btn-zoom-month').addEventListener('click', () => applyScale('month'));
     document.getElementById('btn-today').addEventListener('click', () => gantt.showDate(new Date()));
-
-    const btnToggleGrid = document.getElementById('btn-toggle-grid');
-    if (btnToggleGrid) {
-      btnToggleGrid.addEventListener('click', () => {
-        gantt.config.show_grid = !gantt.config.show_grid;
-        gantt.render();
-      });
-    }
   }
 
   /* ── Today marker helper (clearAll removes markers) ───── */
