@@ -903,6 +903,16 @@ window.UI = (() => {
       applyFilters();
     });
 
+    const statusRisk = document.getElementById('status-click-risk');
+    if (statusRisk) statusRisk.addEventListener('click', () => {
+      if (fEstado) { fEstado.value = 'Retrasada'; applyFilters(); window.scrollTo({top:0, behavior:'smooth'}); }
+    });
+    
+    const statusBlocked = document.getElementById('status-click-blocked');
+    if (statusBlocked) statusBlocked.addEventListener('click', () => {
+      if (fEstado) { fEstado.value = 'Bloqueada'; applyFilters(); window.scrollTo({top:0, behavior:'smooth'}); }
+    });
+
     // Gantt filter hook
     if (window.gantt) {
       gantt.attachEvent('onBeforeTaskDisplay', (id, task) => {
@@ -915,11 +925,32 @@ window.UI = (() => {
 
         // Estado filter: "Retrasada" is a calculated state (start <= today, 0% progress)
         if (estado) {
+          const p = Math.round((task.progress || 0) * 100);
           if (estado === 'Retrasada') {
             const today = new Date(); today.setHours(0,0,0,0);
             const tStart = new Date(task.start_date); tStart.setHours(0,0,0,0);
-            const isDelayed = (tStart <= today && (task.progress || 0) === 0 && task._estado !== 'Finalizada');
+            const isDelayed = (tStart <= today && p === 0 && task._estado !== 'Finalizada');
             if (!isDelayed) return false;
+          } else if (estado === 'Bloqueada') {
+            let isBlocked = false;
+            if (p < 100 && task._estado !== 'Finalizada') {
+              if (task.$target && task.$target.length > 0) {
+                for (let linkId of task.$target) {
+                  if (gantt.isLinkExists(linkId)) {
+                    const link = gantt.getLink(linkId);
+                    if (gantt.isTaskExists(link.source)) {
+                      const pred = gantt.getTask(link.source);
+                      const predP = Math.round((pred.progress || 0) * 100);
+                      if (predP < 100 && pred._estado !== 'Finalizada') {
+                        isBlocked = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            if (!isBlocked) return false;
           } else if (task._estado !== estado) {
             return false;
           }

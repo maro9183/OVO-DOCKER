@@ -105,8 +105,7 @@ window.GanttApp = (() => {
           const name = t._projectName || '';
           const color = t.color || '#6366f1';
           if (!name) return '';
-          return `<span style="font-size:10px;font-weight:600;display:inline-flex;align-items:center;gap:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${name}">
-            <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0"></span>
+          return `<span style="font-size:10px;font-weight:600;display:inline-flex;align-items:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${name}">
             ${name}
           </span>`;
         }
@@ -129,7 +128,7 @@ window.GanttApp = (() => {
       },
       {
         name: 'estado_col', label: 'Estado', width: 100, align: 'center',
-        template: t => estadoBadge(t._estado)
+        template: t => estadoBadge(t)
       },
       {
         name: 'notes_col', label: '📝', width: 30, align: 'center',
@@ -164,7 +163,8 @@ window.GanttApp = (() => {
           <span style="color:var(--text-muted)">Proyecto:</span> ${t._projectName || '—'}<br>
           <span style="color:var(--text-muted)">Inicio:</span> ${gantt.templates.date_grid(s)}<br>
           <span style="color:var(--text-muted)">Fin:</span> ${gantt.templates.date_grid(e)}<br>
-          <span style="color:var(--text-muted)">Costo:</span> ${costo > 0 ? '$' + costo.toLocaleString('es-AR') : '—'}<br>
+          <span style="color:var(--text-muted)">Estado:</span> ${estadoBadge(t)}<br>
+          <span style="color:var(--text-muted)">Progreso:</span> <span style="color:var(--indigo);font-weight:600">${Math.round((t.progress||0)*100)}%</span><br>
           <span style="color:var(--text-muted)">Días:</span> ${t.duration} (${t._tipo_dias || 'calendario'})<br>
           <span style="color:var(--text-muted)">Avance:</span> ${Math.round((t.progress||0)*100)}%<br>
           <span style="color:var(--text-muted)">Responsable:</span> ${t.responsable || '—'}
@@ -271,14 +271,45 @@ window.GanttApp = (() => {
   }
 
   /* ── Helpers ─────────────────────────────────────────────── */
-  function estadoBadge(estado) {
+  function estadoBadge(t) {
+    let estado = t._estado || 'No comenzada';
+    const p = Math.round((t.progress || 0) * 100);
+
+    if (estado !== 'Finalizada') {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
+      
+      if (tStart <= today && p === 0) {
+        estado = 'Retrasada';
+      } else if (p < 100) {
+        if (t.$target && t.$target.length > 0) {
+          for (let linkId of t.$target) {
+            if (window.gantt && gantt.isLinkExists && gantt.isLinkExists(linkId)) {
+              const link = gantt.getLink(linkId);
+              if (gantt.isTaskExists(link.source)) {
+                const pred = gantt.getTask(link.source);
+                const predP = Math.round((pred.progress || 0) * 100);
+                if (predP < 100 && pred._estado !== 'Finalizada') {
+                  estado = 'Bloqueada';
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     const map = {
       'No comenzada': 'badge-no-comenzada',
       'En progreso':  'badge-en-progreso',
-      'Finalizada':   'badge-finalizada'
+      'Finalizada':   'badge-finalizada',
+      'Retrasada':    'badge-retrasada',
+      'Bloqueada':    'badge-bloqueada'
     };
+    
     const cls = map[estado] || 'badge-no-comenzada';
-    return `<span class="badge ${cls}">${estado || '—'}</span>`;
+    return `<span class="badge ${cls}">${estado}</span>`;
   }
 
   function dbTaskToGantt(t, color) {

@@ -316,7 +316,6 @@
               </button>
             </div>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-new-task">＋ Nueva Tarea</button>
         </div>
       </div>
 
@@ -385,34 +384,26 @@
 
       <!-- Filter Bar -->
       <div class="filter-bar" id="filter-bar" style="display:none">
-        <div class="filter-bar-left">
-          <div class="filter-search">
+        <div class="filter-bar-left" style="width: 100%; display: flex; gap: 8px;">
+          <div class="filter-search" style="flex:1;">
             <span class="filter-search-icon">🔍</span>
-            <input type="text" id="filter-search" placeholder="Buscar tareas..." class="filter-input">
+            <input type="text" id="filter-search" placeholder="Buscar tareas..." class="filter-input" style="width:100%">
           </div>
           <select class="filter-select" id="filter-estado">
-            <option value="">Estado ▼</option>
-            <option value="En progreso">En progreso</option>
-            <option value="Finalizada">Finalizada</option>
-            <option value="No comenzada">Pendiente</option>
-            <option value="Retrasada">Retrasado</option>
+            <option value="">Estado</option>
+            <option value="En progreso">🔵 En progreso</option>
+            <option value="Finalizada">🟢 Finalizada</option>
+            <option value="No comenzada">⚪ Pendiente</option>
+            <option value="Retrasada">🔴 Retrasada</option>
+            <option value="Bloqueada">⚫ Bloqueada</option>
           </select>
           <select class="filter-select" id="filter-responsable">
-            <option value="">Responsable ▼</option>
+            <option value="">Responsable</option>
           </select>
           <select class="filter-select" id="filter-proyecto">
-            <option value="">Proyecto ▼</option>
+            <option value="">Proyecto</option>
           </select>
-          <button class="btn btn-ghost btn-sm" id="btn-filter-clear" title="Limpiar filtros">🗑 Limpiar</button>
-        </div>
-        <div class="filter-bar-right">
-          <div class="filter-legend">
-            <span class="legend-item"><span class="legend-dot" style="background:var(--indigo)"></span> En progreso</span>
-            <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span> Completada</span>
-            <span class="legend-item"><span class="legend-dot" style="background:var(--text-dim)"></span> Pendiente</span>
-            <span class="legend-item"><span class="legend-dot" style="background:var(--red)"></span> Retrasado</span>
-            <span class="legend-item"><span class="legend-dot" style="background:#1e1e2f;border:1px solid var(--border)"></span> Bloqueada</span>
-          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-filter-clear" title="Limpiar filtros">Deshacer Filtro</button>
         </div>
       </div>
 
@@ -427,7 +418,7 @@
 
       <!-- Status Bar (bottom) -->
       <div class="status-bar" id="status-bar" style="display:none">
-        <div class="status-section status-risk">
+        <div class="status-section status-risk clickable" id="status-click-risk" title="Filtrar Retrasadas">
           <div class="status-header">
             <span class="status-title">PROYECTOS EN RIESGO</span>
           </div>
@@ -437,7 +428,7 @@
           </div>
           <div class="status-desc" id="status-risk-label">Tareas retrasadas</div>
         </div>
-        <div class="status-section status-blocked">
+        <div class="status-section status-blocked clickable" id="status-click-blocked" title="Filtrar Bloqueadas">
           <div class="status-header">
             <span class="status-title">TAREAS BLOQUEADAS</span>
           </div>
