@@ -67,13 +67,26 @@ DB_PASSWORD=tu_password
 PORT=3000
 ```
 
-### 3. Iniciar Sistema
+### 3. Iniciar Sistema (Manual)
 ```bash
 cd backend
 npm install
-npm run dev
+node server.js
 ```
 *Nota: La base de datos y las tablas se crean **automáticamente** al primer arranque.*
+
+## 🐳 Despliegue con Docker (Recomendado)
+
+Si tienes Docker instalado, puedes levantar todo el stack (App + MySQL) con un solo comando:
+
+1. **Levantar contenedores**:
+   ```bash
+   docker-compose up -d --build
+   ```
+2. **Acceder a la aplicación**:
+   Abre tu navegador en `http://localhost:3000`.
+
+*Los datos de la base de datos se guardarán de forma persistente en un volumen de Docker.*
 
 ## 🔌 API Endpoints (Resumen)
 
@@ -85,6 +98,26 @@ npm run dev
 | **Notas** | `GET /api/tasks/:id/notes`, `POST /api/notes`, `DELETE /api/notes/:id` |
 | **Config** | `/api/responsables`, `/api/subresponsables`, `/api/resources` |
 | **Admin** | `GET/POST/PUT /api/users` |
+
+## 💾 Respaldo y Restauración (Universal)
+
+He incluido scripts automáticos y manuales para gestionar tus datos de forma segura, ya sea que uses **Windows (PowerShell)** o **Linux (Bash)**.
+
+### 🤖 Backup Automático
+El sistema ahora incluye un servicio que realiza un respaldo completo de la base de datos **todos los días a las 00:00**. 
+- Los archivos se guardan en la carpeta `backups/`.
+- El sistema mantiene automáticamente solo los últimos **7 días**.
+
+### 🛠 Gestión Manual (Scripts)
+
+| Acción | Windows (PowerShell) | Linux/Mac (Bash) |
+|---|---|---|
+| **Crear Backup** | `.\scripts\backup.ps1` | `bash scripts/backup.sh` |
+| **Restaurar** | `.\scripts\restore.ps1` | `bash scripts/restore.sh` |
+
+*Para restaurar un archivo específico:*
+- **Windows:** `.\scripts\restore.ps1 -BackupFile backups\archivo.sql`
+- **Linux:** `bash scripts/restore.sh backups/archivo.sql`
 
 ---
 *Desarrollado para la excelencia operativa en la gestión de proyectos de 3MGAS.*
