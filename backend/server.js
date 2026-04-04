@@ -1,5 +1,6 @@
 const express = require('express');
 const cors    = require('cors');
+const morgan  = require('morgan');
 const path    = require('path');
 require('dotenv').config();
 
@@ -17,6 +18,7 @@ const { requireAuth }  = require('./middleware/auth');
 const app = express();
 
 app.use(cors());
+app.use(morgan('dev')); // Logger de peticiones (GET, POST, etc.)
 app.use(express.json());
 
 // Sirve el frontend como archivos estáticos

@@ -158,41 +158,55 @@ const TABLES = [
 
 async function initDB() {
   const dbName = process.env.DB_NAME || 'ovo2';
+  const maxRetries = 5;
+  let retries = 0;
 
- // Conexión temporal sin BD para crearla
-const tempConn = await mysql.createConnection({
-  host    : process.env.DB_HOST     || 'localhost',
-  port    : parseInt(process.env.DB_PORT || '3306'),
-  user    : process.env.DB_USER     || 'root',
-  password: process.env.DB_PASSWORD || ''
-});
+  while (retries < maxRetries) {
+    try {
+      // Conexión temporal sin BD para crearla
+      const tempConn = await mysql.createConnection({
+        host    : process.env.DB_HOST     || 'localhost',
+        port    : parseInt(process.env.DB_PORT || '3306'),
+        user    : process.env.DB_USER     || 'root',
+        password: process.env.DB_PASSWORD || ''
+      });
 
-// 🔥 CAMBIO ACÁ
-await tempConn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-await tempConn.query(`USE \`${dbName}\``);
+      console.log(`📡 Conectando a MySQL en ${process.env.DB_HOST || 'localhost'}...`);
+      
+      await tempConn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+      await tempConn.query(`USE \`${dbName}\``);
 
-// 🔥 Y ACÁ
-for (const sql of TABLES) {
-  await tempConn.query(sql);
-}
+      for (const sql of TABLES) {
+        await tempConn.query(sql);
+      }
 
-await tempConn.end();
+      await tempConn.end();
 
-  // Pool principal
-  pool = mysql.createPool({
-    host            : process.env.DB_HOST     || 'localhost',
-    port            : parseInt(process.env.DB_PORT || '3306'),
-    user            : process.env.DB_USER     || 'root',
-    password        : process.env.DB_PASSWORD || '',
-    database        : dbName,
-    waitForConnections: true,
-    connectionLimit : 10,
-    queueLimit      : 0,
-    dateStrings     : true   // fechas como strings, sin problemas de timezone
-  });
+      // Pool principal
+      pool = mysql.createPool({
+        host            : process.env.DB_HOST     || 'localhost',
+        port            : parseInt(process.env.DB_PORT || '3306'),
+        user            : process.env.DB_USER     || 'root',
+        password        : process.env.DB_PASSWORD || '',
+        database        : dbName,
+        waitForConnections: true,
+        connectionLimit : 10,
+        queueLimit      : 0,
+        dateStrings     : true
+      });
 
-  console.log(`✅ Base de datos '${dbName}' lista`);
-  return pool;
+      console.log(`✅ Base de datos '${dbName}' lista`);
+      return pool;
+    } catch (err) {
+      retries++;
+      if (err.code === 'ECONNREFUSED' && retries < maxRetries) {
+        console.log(`⏳ Base de datos no lista aún. Reintentando en 3s... (${retries}/${maxRetries})`);
+        await new Promise(res => setTimeout(res, 3000));
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 function getPool() {

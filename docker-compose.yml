@@ -1,4 +1,4 @@
-version: '3.8'
+# Arquitactura OVO2
 
 services:
   db:
@@ -31,7 +31,7 @@ services:
 
   # 🤖 SERVICIO DE BACKUP AUTOMÁTICO
   backup-cron:
-    image: fradelg/mysql-cron-backup:v1.17
+    image: fradelg/mysql-cron-backup:latest
     container_name: ovo2-backup-cron
     restart: always
     depends_on:
