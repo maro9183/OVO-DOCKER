@@ -5,11 +5,12 @@ services:
     image: mysql:8.0
     container_name: ovo2-db
     restart: always
+    command: "--host-cache-size=0" # Reemplaza el deprecado --skip-host-cache
     environment:
       MYSQL_ROOT_PASSWORD: ovo_password_2024
       MYSQL_DATABASE: ovo2
     ports:
-      - "3307:3306" # Mapeamos a 3307 local para evitar conflictos si ya hay un MySQL corriendo
+      - "3307:3306"
     volumes:
       - ovo2-data:/var/lib/mysql
 

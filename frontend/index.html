@@ -632,7 +632,7 @@
   <div class="modal-overlay hidden" id="modal-project">
     <div class="modal-box">
       <div class="modal-header">
-        <span class="modal-title">Nuevo Proyecto</span>
+        <span class="modal-title" id="modal-project-title">Nuevo Proyecto</span>
         <button class="modal-close" data-close-modal>×</button>
       </div>
       <div class="modal-body">
@@ -657,8 +657,10 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btn-delete-project" style="display:none;margin-right:auto">🗑
+          Eliminar Proyecto</button>
         <button class="btn btn-ghost" data-close-modal>Cancelar</button>
-        <button class="btn btn-primary" id="btn-save-project">Crear Proyecto</button>
+        <button class="btn btn-primary" id="btn-save-project">Guardar</button>
       </div>
     </div>
   </div>

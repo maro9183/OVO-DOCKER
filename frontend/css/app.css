@@ -195,6 +195,44 @@ body.is-admin #sidebar-role-label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-right: 4px;
+}
+
+.project-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition);
+  margin-left: auto;
+}
+
+.project-item:hover .project-actions {
+  opacity: 1;
+}
+
+.btn-project-action {
+  padding: 4px;
+  font-size: 10px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center; justify-content: center;
+}
+
+.btn-project-action:hover {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-light);
+}
+
+.btn-project-action.delete:hover {
+  color: var(--red);
+  border-color: var(--red);
+  background: #ef444415;
 }
 
 .project-count {

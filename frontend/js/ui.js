@@ -8,6 +8,7 @@ window.UI = (() => {
   let recursos       = [];
   let allTasks       = []; // tareas del proyecto activo
   let editingTaskId  = null;
+  let editingProjectId = null;
   let editingResponsableId = null;
   let editingSubrespId = null;
   let editingRecursoId = null;
@@ -60,13 +61,36 @@ window.UI = (() => {
            style="--active-color:${p.color}">
         <span class="project-dot" style="background:${p.color}"></span>
         <span class="project-name" title="${p.nombre_proyecto}">${p.nombre_proyecto}</span>
+        <div class="project-actions">
+          <button class="btn-project-action btn-edit-proj" title="Editar proyecto">✏️</button>
+          <button class="btn-project-action delete btn-delete-proj" title="Eliminar proyecto">🗑</button>
+        </div>
       </div>
     `).join('');
 
     list.innerHTML = html;
 
     list.querySelectorAll('.project-item').forEach(el => {
-      el.addEventListener('click', () => selectProject(+el.dataset.id, el.dataset.color));
+      // Click en el item (seleccionar)
+      el.addEventListener('click', (e) => {
+        // Evitar que el click en los botones dispare el selectProject
+        if (e.target.closest('.project-actions')) return;
+        selectProject(+el.dataset.id, el.dataset.color);
+      });
+
+      // Click en Editar
+      const btnEdit = el.querySelector('.btn-edit-proj');
+      if (btnEdit) btnEdit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openProjectModal(+el.dataset.id);
+      });
+
+      // Click en Borrar
+      const btnDel = el.querySelector('.btn-delete-proj');
+      if (btnDel) btnDel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        confirmDeleteProject(+el.dataset.id);
+      });
     });
     const btnAll = document.getElementById('btn-all-projects');
     if (btnAll) btnAll.addEventListener('click', selectAllProjects);
@@ -467,11 +491,18 @@ window.UI = (() => {
   }
 
   /* ── Project Modal ──────────────────────────────────────── */
-  function openProjectModal() {
-    document.getElementById('field-proj-codigo').value = '';
-    document.getElementById('field-proj-nombre').value = '';
-    document.getElementById('field-proj-desc').value   = '';
-    document.getElementById('field-proj-color').value  = '#6366f1';
+  function openProjectModal(id = null) {
+    editingProjectId = id;
+    const raw = editingProjectId ? projects.find(p => p.id_proyecto == editingProjectId) : null;
+
+    document.getElementById('modal-project-title').textContent = editingProjectId ? 'Editar Proyecto' : 'Nuevo Proyecto';
+    document.getElementById('btn-delete-project').style.display = editingProjectId ? 'block' : 'none';
+
+    document.getElementById('field-proj-codigo').value = raw?.proyecto || '';
+    document.getElementById('field-proj-nombre').value = raw?.nombre_proyecto || '';
+    document.getElementById('field-proj-desc').value   = raw?.descripcion || '';
+    document.getElementById('field-proj-color').value  = raw?.color || '#6366f1';
+    
     document.getElementById('modal-project').classList.remove('hidden');
     document.getElementById('field-proj-codigo').focus();
   }
@@ -487,14 +518,52 @@ window.UI = (() => {
     const btn = document.getElementById('btn-save-project');
     btn.disabled = true;
     try {
-      const p = await API.createProject(data);
-      projects.push(p);
+      if (editingProjectId) {
+        const p = await API.updateProject(editingProjectId, data);
+        projects = projects.map(x => x.id_proyecto == editingProjectId ? p : x);
+        toast(`Proyecto "${p.nombre_proyecto}" actualizado`, 'success');
+        // Si es el proyecto activo, refrescar título y badge
+        if (GanttApp.getCurrentProjectId() == editingProjectId) {
+          document.getElementById('project-title').textContent = p.nombre_proyecto;
+          document.getElementById('project-badge').textContent = p.proyecto;
+          document.getElementById('project-badge').style.color = p.color;
+          document.getElementById('project-badge').style.background = p.color + '22';
+        }
+      } else {
+        const p = await API.createProject(data);
+        projects.push(p);
+        toast(`Proyecto "${p.nombre_proyecto}" creado`, 'success');
+        await selectProject(p.id_proyecto, p.color);
+      }
       renderProjectList();
       document.getElementById('modal-project').classList.add('hidden');
-      toast(`Proyecto "${p.nombre_proyecto}" creado`, 'success');
-      await selectProject(p.id_proyecto, p.color);
-    } catch (e) { toast(e.error || 'Error al crear proyecto', 'error'); }
-    finally { btn.disabled = false; }
+    } catch (e) { toast(e.error || 'Error al guardar proyecto', 'error'); }
+    finally { btn.disabled = false; editingProjectId = null; }
+  }
+
+  /* ── Project Delete ─────────────────────────────────────── */
+  async function confirmDeleteProject(id) {
+    const p = projects.find(x => x.id_proyecto == id);
+    if (!p) return;
+    
+    const agreed = await showConfirm(
+      'Eliminar Proyecto', 
+      `¿Eliminar el proyecto "${p.nombre_proyecto}"? Esta acción borrará todas sus tareas asociadas y no se puede deshacer.`, 
+      'Sí, eliminar todo'
+    );
+    if (!agreed) return;
+    
+    try {
+      await API.deleteProject(id);
+      projects = projects.filter(x => x.id_proyecto != id);
+      renderProjectList();
+      toast('Proyecto eliminado', 'warning');
+      
+      // Si el proyecto borrado era el activo, volver al menú
+      if (GanttApp.getCurrentProjectId() == id) {
+        selectAllProjects();
+      }
+    } catch (e) { toast(e.error || 'Error al eliminar proyecto', 'error'); }
   }
 
   /* ── Modals Responsable & Recurso ───────────────────────── */
@@ -936,8 +1005,15 @@ window.UI = (() => {
     });
 
     // Eliminar tarea (desde modal)
-    document.getElementById('btn-delete-task').addEventListener('click', () => {
+    const btnDelTask = document.getElementById('btn-delete-task');
+    if (btnDelTask) btnDelTask.addEventListener('click', () => {
       if (editingTaskId) confirmDelete(editingTaskId);
+    });
+
+    // Eliminar proyecto (desde modal)
+    const btnDelProj = document.getElementById('btn-delete-project');
+    if (btnDelProj) btnDelProj.addEventListener('click', () => {
+      if (editingProjectId) confirmDeleteProject(editingProjectId);
     });
 
     // Export buttons
