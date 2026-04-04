@@ -22,18 +22,19 @@ const TABLES = [
     valor_hora  DECIMAL(10,2) DEFAULT 0.00
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  `CREATE TABLE IF NOT EXISTS responsables (
-    id_resp INT AUTO_INCREMENT PRIMARY KEY,
-    nombre  VARCHAR(255) NOT NULL,
-    correo  VARCHAR(255) UNIQUE NOT NULL,
-    rol     VARCHAR(100),
-    equipo  VARCHAR(100),
-    foto    VARCHAR(500)
+  `CREATE TABLE IF NOT EXISTS subresponsables (
+    id_subresp INT AUTO_INCREMENT PRIMARY KEY,
+    id_lead    INT NOT NULL,
+    nombre     VARCHAR(255) NOT NULL,
+    correo     VARCHAR(255) UNIQUE NOT NULL,
+    FOREIGN KEY (id_lead) REFERENCES responsables(id_resp) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS tareas (
     id_tarea                INT AUTO_INCREMENT PRIMARY KEY,
     id_proyecto             INT NOT NULL,
+    id_parent               INT DEFAULT NULL,
+    id_subresp              INT DEFAULT NULL,
     tarea                   VARCHAR(100),
     descripcion             TEXT,
     fecha_inicio            DATE,
@@ -45,13 +46,15 @@ const TABLES = [
     responsable             VARCHAR(255),
     avance                  DECIMAL(5,2) DEFAULT 0.00,
     dependencias            TEXT,
+    costo_tarea             DECIMAL(10,2) DEFAULT 0.00,
     fecha_creacion          DATETIME DEFAULT CURRENT_TIMESTAMP,
     notificado              TINYINT(1) DEFAULT 0,
     recursos                TEXT,
     fecha_iniciada          DATETIME,
     fecha_finalizada        DATETIME,
     tipo_dias               ENUM('calendario','laboral') DEFAULT 'calendario',
-    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto) ON DELETE CASCADE
+    FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto) ON DELETE CASCADE,
+    FOREIGN KEY (id_parent)   REFERENCES tareas(id_tarea)       ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS notas (
@@ -63,7 +66,22 @@ const TABLES = [
     autor      VARCHAR(255),
     fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tarea) REFERENCES tareas(id_tarea) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario      INT AUTO_INCREMENT PRIMARY KEY,
+    email           VARCHAR(255) UNIQUE NOT NULL,
+    password_hash   VARCHAR(255) NOT NULL,
+    nombre          VARCHAR(255) NOT NULL,
+    permisos        VARCHAR(255) DEFAULT 'READ',
+    proyectos       TEXT,
+    es_admin        TINYINT(1) DEFAULT 0,
+    activo          TINYINT(1) DEFAULT 1,
+    fecha_creacion  DATETIME DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `INSERT IGNORE INTO usuarios (id_usuario, email, password_hash, nombre, permisos, proyectos, es_admin) VALUES
+  (1, 'admin@ovo2.com', '$2b$10$1zlV9usuJ4q0s5Gb8pmSkuG.2hEJDPZx7P/Esb26zKKh4osNZGtgS', 'Administrador', 'ALL', 'ALL', 1)`
 ];
 
 async function initDB() {
