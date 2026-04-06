@@ -1,4 +1,4 @@
-# OVOBRAND — 3MGAS Project Management
+# — 3MGAS Project Management
 
 Sistema corporativo de gestión de proyectos con diagrama de Gantt interactivo, persistencia en tiempo real y arquitectura robusta.
 
