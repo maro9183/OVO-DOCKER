@@ -3,36 +3,35 @@ Sistema de seguimiento e interfaz de planificación (Project Management Dashboar
 
 ### 2. Estructura del dashboard
 - **Sidebar (Izquierdo)**: Panel de inicio colapsado de forma predeterminada para maximizar el área visual de planeamiento. Contiene menú global (rotulado "MENÚ"), listados de proyectos (en texto tipo UPPERCASE), botón primario expansible ("＋ Nuevo") y header de perfil de usuario.
-- **Header & Toolbar**: Barra de comandos superior concentrada. Panel izquierdo con "≡ Lista de tareas" y rótulos identificadores. Panel derecho albergando selectores de Zoom y Opciones de Exportación (PDF/CSV/Excel).
-- **Tarjetas KPI**: Faja superior (Summary Strip) reestructurada sobre 4 columnas unificando Totalizaciones.
+- **Header & Toolbar**: Barra de comandos superior concentrada. Panel izquierdo con "≡ Lista de tareas" y rótulos identificadores. Panel derecho albergando selectores de Zoom, Opciones de Exportación y **Selector Global de Modo de Color** (Proyecto vs. Responsable).
+- **Tarjetas KPI**: Faja superior (Summary Strip) reestructurada sobre 4 columnas unificando Totalizaciones. Incluye KPIs específicos para el módulo de compras (Total Presupuestado vs. Comprometido).
 - **Barra de Filtros**: Inserción horizontal dinámica con elementos extremos iterados (botones simétricos y perimetrales "Deshacer Filtro" como píldoras) para una recuperación visual de estado.
-- **Main View**: Canvas priorizando Diagrama Gantt sobre la tabla de control (tabla inicia deshabilitada). Al activar la tabla, las subtareas inician colapsadas por defecto para mantener el orden.
+- **Main View**: Canvas priorizando Diagrama Gantt sobre la tabla de control. Permite alternar entre tres visualizaciones: **Tareas**, **Compras** y **Consolidado** (Vista 360).
 
 ### 3. Componentes principales
-- **Diagrama Gantt (DHTMLX)**: Motor estructural que renderiza barras temporales, dependencias operacionales y líneas de Hoy (today marker).
+- **Diagrama Gantt (DHTMLX)**: Motor estructural que renderiza barras temporales, dependencias operacionales y líneas de Hoy (today marker). Soporta renderizado dinámico de Compras como barras blancas de alto contraste en vistas combinadas.
+- **Módulo de Compras**: Sistema integrado para la gestión de suministros asociados a tareas o proyectos. Incluye cálculo de fechas de arribo estimadas, gestión de estados (Solicitada, OC Emitida, etc.) y trazabilidad de costos.
+- **Lookup de Responsables**: Sistema de identificación híbrido que distingue entre Responsables Principales (id prefix `R-`) y Subresponsables/Recursos (id prefix `S-`), con traducción automática de códigos a nombres en toda la interfaz.
 - **Filtros Customizados**: Reemplazo de SelectTags nativos con pseudo-dropdowns para renderizado de HTML rico (Mini-Badges de estados embebidos in-option).
-- **KPIs Compuestos**: Tarjetas de valores que presentan doble métrica condensada. Exhiben la relación "Tareas Finalizadas / Total de Tareas (X%)" con sub-fila de "Subtareas (X / Total Y%)".
-- **Desplegables Compactos**: Arquitectura de sub-menús agrupados usando el componente Pill-Dropdown.
 
 ### 4. Reglas UX/UI
-- **Jerarquía y Foco**: Componentes estáticos opcionales ocultos en la inicialización (Sidebars y DataGrid) apuntando todo el primer view al mapa del proyecto.
-- **Seguridad de Interfaz**: Las herramientas de gestión crítica (botón de usuarios ⚙️ y etiqueta de rol "Administrador") solo se renderizan/muestran si el objeto de usuario activo posee la propiedad `es_admin: true`. Para usuarios estándar, estos elementos permanecen ocultos para simplificar la experiencia.
-- **Sistema de Color**: "Dark Mode Premium". Altos contrastes y mitigación de sombras difusas. Variables actualizadas para máxima lectura: textos atenuados iluminados (`--text-muted: #cbd5e1`, `--text-dim: #94a3b8`); acentos visuales y estados activos en `var(--indigo)` (`#6366f1`).
-- **Morfología Circular**: Envolventes visuales con `border-radius: 100px` (Botones Píldora / `.btn-pill`) reduciendo aristas vivas donde corresponda, para componentes interactuados frecuentemente.
-- **Estado Predictivo**: Controles con remarcado de estado activo explícito (El selector temporal de Mes/Día retiene clase CSS `btn-primary` para reflejar contexto constante al operador).
+- **Jerarquía y Foco**: Componentes estáticos opcionales ocultos en la inicialización. El Gantt se auto-centra matemáticamente en la línea de "Hoy" al cambiar de vista, utilizando un efecto de "Zero-Flicker" (fade-in) para una transición suave.
+- **Seguridad de Interfaz**: Las herramientas de gestión crítica solo se renderizan/muestran si el objeto de usuario activo posee la propiedad `es_admin: true`. 
+- **Sistema de Color**: "Dark Mode Premium". Soporta dos modos globales: **Color por Proyecto** (colores fijos por obra) y **Color por Responsable** (paleta dinámica asignada a cada encargado), conmutables desde la toolbar.
+- **Morfología Circular**: Envolventes visuales con `border-radius: 100px` (Botones Píldora / `.btn-pill`) para componentes interactuados frecuentemente.
+- **Interacción de Edición**: Estándar de **Doble Clic** para abrir modales de edición tanto en tareas como en compras, evitando aperturas accidentales por clics simples.
 
 ### 5. Reglas específicas del Gantt
-- **Semántica de Estado**: Estados condicionales dinámicos. Un estado es "Retrasada" sí StartDate <= Today y progreso 0%. Un estado pasa a "Bloqueada" si una tarea de la que depende (predecesora) no está aún `Finalizada`. 
-- **Presentación Limpia**: Grilla de datos despojada de círculos de código de proyecto o íconos redundantes. Extracción de dependencias mediante badges tipográficos `inline-block` customizados que heredan paleta. Mantenimiento estricto global a font-family `Inter` en toda la grilla de DHTMLX mediante anulaciones `!important`.
-- **Interacción de Notas**: El icono de nota se aloja exclusivamente en su columna (`notes_col`), representado por un botón estilizado (Indigo con SVG blanco) que abre el modal de notas al hacer clic. No se muestran iconos de notas en el nombre de la tarea.
+- **Semántica de Estado**: Estados condicionales dinámicos. Las compras muestran alertas visuales (pulsación roja) si están "Retrasadas" respecto a su fecha estimada.
+- **Presentación Limpia**: Grilla de datos despojada de íconos redundantes. Mantenimiento estricto de font-family `Inter` mediante anulaciones `!important`.
+- **Diferenciación de Compras**: En la vista consolidada, las compras se renderizan siempre con fondo Blanco y texto Negro intenso (`#0f172a`) para separarlas visualmente de las tareas de colores.
 
 ### 6. Decisiones tomadas
-- Se centralizó e implementó un custom dropdown "＋ Nuevo ▼" extirpando botones duplicados y conflictivos.
-- Se programó motor de parseo y segregación en el dashboard KPI para separar métricas analíticas directas ("T:") de Subtareas ("S:"), reteniendo el límite de Layout a solo 4 tarjetas.
-- Se codificó un menú customizado (Custom Select Dropdown) de Estado para sobrepasar la limitación de `<options>` nativos, imprimiendo las correspondientes Badges.
-- Los botones de reset de filtros se ubican en ambos márgenes de la fila (simetría) en formato píldora alto contraste.
-- Todos los Proyectos mutó contextualmente a la denominación abstracta “MENÚ”.
-- Initial state override aplicado: arranca configurado a nivel Zoom Mensual (Month Scale), asimilado a solo canvas (Ocultar Lista) y Barra lateral colapsada.
+- Se integró la columna `id_proyecto` directamente en la tabla de compras para permitir su visualización por "Obra" incluso sin vinculación a una tarea específica.
+- Se implementó un asistente de centrado matemático (`centerToday`) que calcula el scroll exacto basándose en el ancho del viewport disponible.
+- Se unificó el selector de colores de la barra de herramientas para que afecte sincrónicamente a todas las vistas abiertas del Gantt.
+- Se estandarizó el uso de prefijos `R-` y `S-` para manejar la polimorfia de responsables entre las tablas de `responsables` y `recursos`.
 
 ### 7. Pendientes / próximos pasos
-- No hay. Todos los issues referidos a comportamientos anómalos de toggle (Lista/Gantt) y contrastes de fuente nativa resueltos íntegramente.
+- Monitoreo de performance en la Vista Consolidada con volumen masivo de datos.
+- Implementación de reportes gráficos avanzados (Chart.js) para análisis de desvíos en presupuesto de compras.
