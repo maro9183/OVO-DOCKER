@@ -9,6 +9,24 @@ window.GanttApp = (() => {
   let _allProjectsMode = false;
   let _projectsMap = {}; // id_proyecto -> { nombre, codigo, color }
 
+  let _colorMode = 'project';
+  const _responsableColors = {};
+  const _palette = ['#e11d48', '#d946ef', '#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#14b8a6', '#10b981', '#22c55e', '#f59e0b', '#f97316'];
+  let _paletteIdx = 0;
+
+  function getColorMode() { return _colorMode; }
+  function setColorMode(mode) { _colorMode = mode; }
+  
+  function getResponsableColor(resp) {
+    if (!resp) return '#94a3b8'; // gris
+    const key = String(resp).split('@')[0];
+    if (!_responsableColors[key]) {
+      _responsableColors[key] = _palette[_paletteIdx % _palette.length];
+      _paletteIdx++;
+    }
+    return _responsableColors[key];
+  }
+
   /* ── Scales ─────────────────────────────────────────────── */
   const SCALES = {
     day: [
@@ -80,7 +98,7 @@ window.GanttApp = (() => {
 
     applyScale(currentScale);
 
-    const isMobile = window.innerWidth < 768;
+    let   isMobile          = window.innerWidth < 768;
     
     /* ── Columns ──────────────────────────────────────────── */
     gantt.config.columns = [
@@ -152,34 +170,44 @@ window.GanttApp = (() => {
     };
 
     gantt.templates.task_text = (s, e, t) => {
-      const initials = (t.responsable || '')
+      const respName = (window.PurchaseModule && window.PurchaseModule.getResponsableName) 
+                       ? window.PurchaseModule.getResponsableName(t.responsable) 
+                       : t.responsable;
+      const initials = (respName || '')
         .split('@')[0].substring(0, 2).toUpperCase() || '??';
-      return `<span class="task-bar-label">${t.text || ''}</span>
-              <span class="task-bar-resp" title="${t.responsable || ''}">${initials}</span>`;
+      const tc = t.textColor ? `color:${t.textColor} !important;` : '';
+      return `<span class="task-bar-label" style="${tc}">${t.text || ''}</span>
+              <span class="task-bar-resp" title="${respName || ''}" style="${tc}">${initials}</span>`;
     };
 
     gantt.templates.tooltip_text = (s, e, t) => {
-      const costo = parseFloat(t._raw?.costo_tarea || t._costo || 0);
       return `
       <div style="min-width:180px">
         <strong style="font-size:13px">${t.text || ''}</strong><br>
         <div style="margin-top:6px;line-height:2">
-          <span style="color:var(--text-muted)">Proyecto:</span> ${t._projectName || '—'}<br>
+          <span style="color:var(--text-muted)">Proyecto:</span> ${t._projectName || '-'}<br>
           <span style="color:var(--text-muted)">Inicio:</span> ${gantt.templates.date_grid(s)}<br>
           <span style="color:var(--text-muted)">Fin:</span> ${gantt.templates.date_grid(e)}<br>
           <span style="color:var(--text-muted)">Estado:</span> ${estadoBadge(t)}<br>
           <span style="color:var(--text-muted)">Progreso:</span> <span style="color:var(--indigo);font-weight:600">${Math.round((t.progress||0)*100)}%</span><br>
           <span style="color:var(--text-muted)">Días:</span> ${t.duration} (${t._tipo_dias || 'calendario'})<br>
           <span style="color:var(--text-muted)">Avance:</span> ${Math.round((t.progress||0)*100)}%<br>
-          <span style="color:var(--text-muted)">Responsable:</span> ${t.responsable || '—'}
+          <span style="color:var(--text-muted)">Responsable:</span> ${(window.PurchaseModule && window.PurchaseModule.getResponsableName) ? window.PurchaseModule.getResponsableName(t.responsable) : (t.responsable || '-')}
         </div>
       </div>`;
     };
 
     gantt.templates.link_class = () => 'gantt-link';
 
-    // Disable default lightbox → usamos modal propio
-    gantt.showLightbox = id => UI.openTaskModal(gantt.getTask(id));
+    // Disable default lightbox → usamos modal propio o modal de compras si es compra
+    gantt.showLightbox = id => {
+      if (String(id).startsWith('pur_')) {
+        const purId = parseInt(String(id).replace('pur_', ''));
+        if (window.PurchaseModule) window.PurchaseModule.openPurchaseModal(purId);
+      } else {
+        if (window.UI) UI.openTaskModal(gantt.getTask(id));
+      }
+    };
 
     gantt.attachEvent('onTaskCreated', (task) => {
       UI.openTaskModal(null);
@@ -207,17 +235,34 @@ window.GanttApp = (() => {
         fecha_inicio:  newStart,
         duracion_dias: newDur
       }).then(r => {
-        // Actualizar el _raw para que la edición desde modal muestre l os datos correctos
+        _ignoreUpdate = true;
+        // Actualizar el _raw para que la edición desde modal muestre los datos correctos
         if (gantt.isTaskExists(id)) {
           const gt = gantt.getTask(id);
           gt._raw = r.task;
-          // NO tocar start_date/duration del task draggeado (ya está bien en pantalla)
+          gantt.updateTask(id); // ← fuerza re-render de la fila en grilla izquierda
         }
-        // Propagar cambios a dependientes
+        // Propagar cambios a dependientes y refrescarlos visualmente
         const dependientes = r.updatedTasks.filter(t2 => t2.id_tarea != id);
-        if (dependientes.length) applyUpdatedTasks(dependientes, null);
+        dependientes.forEach(t2 => {
+          if (!gantt.isTaskExists(t2.id_tarea)) return;
+          const gt2 = gantt.getTask(t2.id_tarea);
+          const start2 = t2.dependencias && t2.fecha_inicio_proyectada
+            ? t2.fecha_inicio_proyectada : t2.fecha_inicio;
+          gt2.start_date   = gantt.date.parseDate(start2, 'xml_date');
+          gt2.duration     = parseInt(t2.duracion_dias) || 1;
+          gt2.progress     = parseFloat(t2.avance || 0) / 100;
+          gt2._estado      = t2.estado;
+          gt2._tipo_dias   = t2.tipo_dias;
+          gt2._dependencias = t2.dependencias || '';
+          gt2._raw         = t2;
+          gantt.updateTask(t2.id_tarea);
+        });
+        _ignoreUpdate = false;
+        gantt.render(); // ← Re-dibujo completo para asegurar actualización de grilla y vínculos
         updateSummary();
       }).catch(e => UI.toast(e.error || 'Error al actualizar', 'error'));
+
     });
 
     gantt.attachEvent('onAfterProgressDrag', id => {
@@ -317,6 +362,10 @@ window.GanttApp = (() => {
   }
 
   function dbTaskToGantt(t, color) {
+    let finalColor = color || '#6366f1';
+    if (typeof _colorMode !== 'undefined' && _colorMode === 'responsable') {
+      finalColor = getResponsableColor(t.responsable);
+    }
     const startStr = t.dependencias && t.fecha_inicio_proyectada
       ? t.fecha_inicio_proyectada
       : t.fecha_inicio;
@@ -343,8 +392,8 @@ window.GanttApp = (() => {
       end_date:     endStr,
       duration:     endStr ? undefined : (parseInt(t.duracion_dias) || 1),
       progress:     parseFloat(t.avance || 0) / 100,
-      color:        color || '#6366f1',
-      // extra campos
+      color:        finalColor,
+      textColor:    finalColor === '#ffffff' ? '#0f172a' : undefined,
       _tarea_cod:   t.tarea,
       _estado:      t.estado,
       _tipo_dias:   t.tipo_dias,
@@ -637,6 +686,20 @@ window.GanttApp = (() => {
     });
   }
 
+  function centerToday() {
+    const today     = new Date();
+    const x         = gantt.posFromDate(today);
+    const container = document.getElementById('gantt_here');
+    if (!container) return;
+    const containerWidth = container.offsetWidth;
+    const gridWidth      = gantt.config.grid_width || 0;
+    const viewWidth      = containerWidth - gridWidth;
+    const scrollX        = Math.max(0, x - (viewWidth / 2));
+    
+    gantt.scrollTo(scrollX, null);
+    container.style.opacity = '1';
+  }
+
   function setProjectsMap(projects) {
     _projectsMap = {};
     projects.forEach(p => {
@@ -652,6 +715,9 @@ window.GanttApp = (() => {
     currentProjectId    = projectId;
     currentProjectColor = color || '#6366f1';
     _allProjectsMode    = false;
+    const container = document.getElementById('gantt_here');
+    if (container) container.style.opacity = '0';
+
     return API.getProjectTasks(projectId).then(tasks => {
       const gtasks = tasks.map(t => dbTaskToGantt(t, currentProjectColor));
       const links  = buildLinks(tasks);
@@ -673,7 +739,9 @@ window.GanttApp = (() => {
 
       gantt.render();
       if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
-      gantt.showDate(new Date());
+      setTimeout(() => {
+        centerToday();
+      }, 150);
       updateSummary();
     });
   }
@@ -681,6 +749,9 @@ window.GanttApp = (() => {
   async function loadAllProjects() {
     currentProjectId    = '__all__';
     _allProjectsMode    = true;
+
+    const container = document.getElementById('gantt_here');
+    if (container) container.style.opacity = '0';
 
     const allTasks = await API.getTasks();
     const allGtasks = [];
@@ -711,7 +782,9 @@ window.GanttApp = (() => {
 
     gantt.render();
     if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
-    gantt.showDate(new Date());
+    setTimeout(() => {
+        centerToday();
+    }, 150);
     updateSummary();
     return allRawTasks;
   }
@@ -741,5 +814,211 @@ window.GanttApp = (() => {
   function getCurrentProjectId() { return currentProjectId; }
   function isAllProjects() { return _allProjectsMode; }
 
-  return { init, loadProject, loadAllProjects, setProjectsMap, addTask, refreshTask, applyAllUpdated, removeTask, getCurrentProjectId, isAllProjects, updateSummary };
+  /* ── Purchases Gantt View ────────────────────────────────── */
+  let _purchasesGantt = null;
+
+  function purchaseStateCss(p) {
+    if (!p) return 'purchase-normal';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const toDateStr = s => { if (!s) return null; const d = new Date(s + 'T00:00:00'); d.setHours(0,0,0,0); return d; };
+    const necesaria = toDateStr(p.fecha_arribo_necesaria);
+    const estimada  = toDateStr(p.fecha_arribo_estimada);
+    const ocStates  = ['OC emitida','fecha comprometida','entregado'];
+    if (p.estado === 'entregado') return 'purchase-normal';
+    if (ocStates.includes(p.estado)) {
+      if (estimada && estimada < today) return 'purchase-overdue';
+      return 'purchase-normal';
+    }
+    // Sin OC: verificar si ya es tarde para llegar a tiempo
+    if (necesaria) {
+      const diasArrib = parseInt(p.dias_arribo || 0);
+      const deadline = new Date(necesaria); deadline.setUTCDate(deadline.getUTCDate() - diasArrib);
+      deadline.setHours(0,0,0,0);
+      if (deadline <= today) return 'purchase-overdue';
+      const warnDate = new Date(deadline); warnDate.setDate(warnDate.getDate() - 7);
+      if (warnDate <= today) return 'purchase-at-risk';
+    }
+    return 'purchase-normal';
+  }
+
+  function purchaseToGantt(p, overrideColor, projectName = '') {
+    const startStr = p.fecha_solicitud || p.fecha_creacion?.split('T')[0] || new Date().toISOString().split('T')[0];
+    const endRaw   = p.fecha_arribo_estimada || p.fecha_arribo_necesaria;
+    let endStr;
+    if (endRaw) {
+      const e = new Date(endRaw + 'T00:00:00Z');
+      e.setUTCDate(e.getUTCDate() + 1);
+      endStr = e.toISOString().split('T')[0];
+    }
+    const css = purchaseStateCss(p);
+    const respName = (window.PurchaseModule && window.PurchaseModule.getResponsableName) 
+                     ? window.PurchaseModule.getResponsableName(p.id_responsable) 
+                     : (p.responsable_nombre || p.id_responsable || '');
+    const baseColor = overrideColor || '#4f8ef7';
+    return {
+      id:          `pur_${p.id_compra}`,
+      text:        p.producto,
+      start_date:  startStr,
+      end_date:    endStr,
+      duration:    endStr ? undefined : 7,
+      progress:    p.estado === 'entregado' ? 1 : 0,
+      color:       baseColor,
+      textColor:   baseColor === '#ffffff' ? '#0f172a' : '#ffffff',
+      _estado:     p.estado,
+      _css:        css,
+      _purchase:   p,
+      responsable: respName || '', 
+      _projectName: projectName || p.proyecto_nombre || '',
+      type:        'task'
+    };
+  }
+
+  function loadPurchasesView(purchases, allTasks = []) {
+    const container = document.getElementById('gantt_here');
+    if (container) container.style.opacity = '0';
+
+    const items  = purchases.map(p => {
+      let color = undefined;
+      let pName = '';
+      if (p.id_proyecto && _projectsMap[p.id_proyecto]) {
+        color = _projectsMap[p.id_proyecto].color;
+        pName = _projectsMap[p.id_proyecto].nombre;
+      } else if (p.id_tarea) {
+        const t = allTasks.find(x => x.id_tarea == p.id_tarea);
+        if (t && _projectsMap[t.id_proyecto]) {
+          color = _projectsMap[t.id_proyecto].color;
+          pName = _projectsMap[t.id_proyecto].nombre;
+        }
+      }
+      return purchaseToGantt(p, color, pName);
+    });
+    const today  = new Date();
+
+    // Usamos la instancia gantt principal re-inicializada para compras
+    gantt.config.columns = [
+      { name: 'text',        label: 'Producto',    tree: true,  width: 200,
+        template: t => `<span style="font-weight:600">${t.text||''}</span>` },
+      { name: 'responsable', label: 'Resp.',        width: 80, align:'left',
+        template: t => `<span style="font-size:11px;color:var(--text-muted)">${(t.responsable||'').split('@')[0]||'—'}</span>` },
+      { name: 'estado_col',  label: 'Estado',       width: 110, align:'center',
+        template: t => {
+          const map = {
+            'solicitada':'badge-pur-sol','solicitando presupuesto':'badge-pur-pres',
+            'presupuesto recibido':'badge-pur-prec','OC emitida':'badge-pur-oc',
+            'fecha comprometida':'badge-pur-comp','entregado':'badge-pur-ent'
+          };
+          return `<span class="badge ${map[t._estado]||'badge-pur-sol'}">${t._estado||'—'}</span>`;
+        }
+      },
+      { name: 'arribo_nec',  label: 'Necesaria',   width: 80, align:'center',
+        template: t => {
+          const p = t._purchase;
+          if (!p?.fecha_arribo_necesaria) return '—';
+          const d = new Date(p.fecha_arribo_necesaria + 'T00:00:00');
+          return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        }
+      },
+      { name: 'arribo_est',  label: 'Estimada',    width: 80, align:'center',
+        template: t => {
+          const p = t._purchase;
+          if (!p?.fecha_arribo_estimada) return '<span style="color:var(--text-dim)">—</span>';
+          const d = new Date(p.fecha_arribo_estimada + 'T00:00:00');
+          const overdue = d < today;
+          const color = overdue ? 'var(--red)' : 'var(--cyan)';
+          return `<span style="color:${color};font-weight:600">${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}</span>`;
+        }
+      },
+      { name: 'valor_col',   label: 'Total',       width: 80, align:'right',
+        template: t => {
+          const v = t._purchase?.valor_total || 0;
+          return `<span style="color:var(--cyan);font-weight:600">$${parseFloat(v).toLocaleString('es-AR',{maximumFractionDigits:0})}</span>`;
+        }
+      }
+    ];
+
+    gantt.templates.task_class = (s, e, t) => t._css || 'purchase-normal';
+    gantt.templates.task_text  = (s, e, t) => {
+      const tc = t.textColor ? `color:${t.textColor} !important;` : '';
+      return `<span class="task-bar-label" style="${tc}">${t.text||''}</span>`;
+    };
+
+    gantt.clearAll();
+    gantt.parse({ data: items, links: [] });
+    addTodayMarker();
+
+    // Expandir rango de fechas
+    const state = gantt.getState();
+    if (state.min_date && state.max_date) {
+      const es = new Date(Math.min(state.min_date.getTime(), today.getTime()));
+      es.setMonth(es.getMonth() - 1);
+      const ee = new Date(Math.max(state.max_date.getTime(), today.getTime()));
+      ee.setMonth(ee.getMonth() + 3);
+      gantt.config.start_date = es;
+      gantt.config.end_date   = ee;
+    }
+    gantt.render();
+    if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
+    setTimeout(() => {
+        centerToday();
+    }, 150);
+  }
+
+  function loadCombinedView(tasks, purchases) {
+    const container = document.getElementById('gantt_here');
+    if (container) container.style.opacity = '0';
+
+    // Restaurar columnas originales de tareas
+    configure();
+    const taskItems = tasks.map(t => {
+      const c = _projectsMap[t.id_proyecto]?.color || '#6366f1';
+      return dbTaskToGantt(t, c);
+    });
+    const purItems  = purchases.map(p => {
+      let pName = '';
+      if (p.id_proyecto && _projectsMap[p.id_proyecto]) {
+        pName = _projectsMap[p.id_proyecto].nombre;
+      } else if (p.id_tarea) {
+          const t = tasks.find(x => x.id_tarea == p.id_tarea);
+          if (t && _projectsMap[t.id_proyecto]) pName = _projectsMap[t.id_proyecto].nombre;
+      }
+      // Diferenciar las compras visualmente (blanco) en la vista consolidada
+      const g = purchaseToGantt(p, '#ffffff', pName);
+      // Si la compra tiene una tarea vinculada que existe en el gantt, hacerla hija
+      if (p.id_tarea && tasks.some(t => t.id_tarea === p.id_tarea)) {
+        g.parent = p.id_tarea;
+      }
+      return g;
+    });
+    const links = buildLinks(tasks);
+    gantt.clearAll();
+    gantt.parse({ data: [...taskItems, ...purItems], links });
+    addTodayMarker();
+    const state = gantt.getState();
+    const today = new Date();
+    if (state.min_date && state.max_date) {
+      const es = new Date(Math.min(state.min_date.getTime(), today.getTime()));
+      es.setMonth(es.getMonth() - 2);
+      const ee = new Date(Math.max(state.max_date.getTime(), today.getTime()));
+      ee.setMonth(ee.getMonth() + 4);
+      gantt.config.start_date = es;
+      gantt.config.end_date   = ee;
+    }
+    gantt.render();
+    if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
+    setTimeout(() => {
+        centerToday();
+    }, 150);
+    updateSummary();
+  }
+
+  function restoreTasksView() {
+    configure();
+    if (_allProjectsMode) {
+      loadAllProjects();
+    } else if (currentProjectId && currentProjectId !== '__all__') {
+      loadProject(currentProjectId, currentProjectColor);
+    }
+  }
+
+  return { init, loadProject, loadAllProjects, setProjectsMap, addTask, refreshTask, applyAllUpdated, removeTask, getCurrentProjectId, isAllProjects, updateSummary, loadPurchasesView, loadCombinedView, purchaseStateCss, restoreTasksView, getColorMode, setColorMode };
 })();

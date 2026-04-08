@@ -295,6 +295,17 @@ window.UI = (() => {
 
     document.getElementById('modal-task').classList.remove('hidden');
     document.getElementById('field-tarea').focus();
+
+    // Mostrar/ocultar la sección de compras y cargarlas si hay tarea existente
+    const purGroup = document.getElementById('group-task-purchases');
+    if (purGroup) {
+      purGroup.style.display = editingTaskId ? 'block' : 'none';
+      if (editingTaskId) {
+        const purBtn = document.getElementById('btn-new-purchase-from-task');
+        if (purBtn) purBtn.dataset.taskId = editingTaskId;
+        PurchaseModule.renderTaskPurchases(editingTaskId);
+      }
+    }
   }
 
   function updateSubrespSelect(leadId, selectedId = null) {
@@ -1385,15 +1396,627 @@ window.UI = (() => {
       if (s) openSubrespModal(s.id_lead, id);
     },
     deleteSubresp: reqDeleteSubresp,
-    editUser, deleteUser
+    editUser, deleteUser,
+    getResponsables: () => responsables,
+    getSubresponsables: () => subresponsables,
+    getProjects: () => projects,
+    getAllTasks: () => allTasks
   };
 })();
+
+// ── PurchaseModule ─────────────────────────────────────────────
+const PurchaseModule = (() => {
+  let editingPurchaseId = null;
+  let _allPurchases     = [];
+  let _allTasks         = [];
+  let _responsables     = [];
+  let _subresponsables  = [];
+  let _projects         = [];
+  let _currentView      = 'tasks'; // 'tasks' | 'purchases' | 'combined'
+  let _chartsInitialized = false;
+  let _chartExpense = null, _chartCount = null;
+
+  /* ── Fecha helper ──────────────────────────────────────────── */
+  function addDays(dateStr, days) {
+    if (!dateStr || !days) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + parseInt(days));
+    return d.toISOString().split('T')[0];
+  }
+
+  function purStateBadge(estado) {
+    const map = {
+      'solicitada':              'badge-pur-sol',
+      'solicitando presupuesto': 'badge-pur-pres',
+      'presupuesto recibido':    'badge-pur-prec',
+      'OC emitida':              'badge-pur-oc',
+      'fecha comprometida':      'badge-pur-comp',
+      'entregado':               'badge-pur-ent'
+    };
+    const cls = map[estado] || 'badge-pur-sol';
+    return `<span class="badge ${cls}">${estado||'—'}</span>`;
+  }
+
+  /* ── Poblar selects de responsables ────────────────────────── */
+  function fillResponsablesSelects() {
+    const combined = [
+      ..._responsables.map(r => ({ id: 'R-'+r.id_resp, name: '[Resp] '+r.nombre, old: String(r.id_resp) })),
+      ..._subresponsables.map(s => ({ id: 'S-'+s.id_subresp, name: '[Sub] '+s.nombre, old: String(s.id_subresp) }))
+    ];
+    ['field-pur-solicitante', 'field-pur-responsable'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const cur = sel.value;
+      let html = '<option value="">-- Seleccionar --</option>';
+      for (const c of combined) {
+        html += `<option value="${c.id}">${c.name}</option>`;
+      }
+      sel.innerHTML = html;
+      if (cur) {
+        if (cur.startsWith('R-') || cur.startsWith('S-')) {
+          sel.value = cur;
+        } else {
+          const match = combined.find(x => x.old === cur);
+          if (match) sel.value = match.id;
+        }
+      }
+    });
+  }
+
+  /* ── Helper de búsqueda de nombre ── */
+  function getResponsableName(id) {
+    if (!id) return '';
+    if (id.startsWith('R-')) {
+      const rid = id.replace('R-', '');
+      const r = _responsables.find(x => String(x.id_resp) === rid);
+      return r ? r.nombre : id;
+    }
+    if (id.startsWith('S-')) {
+      const sid = id.replace('S-', '');
+      const s = _subresponsables.find(x => String(x.id_subresp) === sid);
+      return s ? s.nombre : id;
+    }
+    return id;
+  }
+
+  /* ── Poblar select de proyectos ────────────────────────────────── */
+  function fillProjectsSelect(presetProjectId = null) {
+    const sel = document.getElementById('field-pur-proyecto');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Seleccionar Proyecto --</option>' +
+      _projects.map(p => `<option value="${p.id_proyecto}"${p.id_proyecto == presetProjectId ? ' selected' : ''}>${p.nombre_proyecto}</option>`).join('');
+    if (presetProjectId) sel.value = presetProjectId;
+  }
+
+  /* ── Poblar select de tareas (filtrado por proyecto) ─────────── */
+  function fillTareasSelect(presetTaskId = null) {
+    const sel = document.getElementById('field-pur-tarea');
+    const projSel = document.getElementById('field-pur-proyecto');
+    if (!sel) return;
+    const projId = projSel ? projSel.value : null;
+    const filteredTasks = projId ? _allTasks.filter(t => String(t.id_proyecto) === String(projId)) : _allTasks;
+    sel.innerHTML = '<option value="">-- Sin tarea asociada --</option>' +
+      filteredTasks.map(t => {
+        const label = `[${t.tarea || t.id_tarea}] ${t.descripcion || ''}`;
+        return `<option value="${t.id_tarea}"${t.id_tarea == presetTaskId ? ' selected' : ''}>${label}</option>`;
+      }).join('');
+    if (presetTaskId) sel.value = presetTaskId;
+  }
+
+  /* ── Abrir modal de compra ──────────────────────────────────── */
+  function openPurchaseModal(purchaseId = null, presetTaskId = null) {
+    editingPurchaseId = purchaseId;
+    const modal = document.getElementById('modal-purchase');
+    const title = document.getElementById('modal-purchase-title');
+    const delBtn = document.getElementById('btn-delete-purchase');
+    if (!modal) return;
+
+    title.textContent = purchaseId ? 'Editar Compra' : 'Nueva Compra';
+    delBtn.style.display = purchaseId ? 'inline-flex' : 'none';
+
+    fillResponsablesSelects();
+    // Pre-seleccionar proyecto si viene de una tarea
+    if (presetTaskId) {
+      const linkedTask = _allTasks.find(t => t.id_tarea == presetTaskId);
+      if (linkedTask) fillProjectsSelect(linkedTask.id_proyecto);
+      else fillProjectsSelect();
+    } else {
+      fillProjectsSelect();
+    }
+    fillTareasSelect(presetTaskId);
+
+    const f = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+
+    if (purchaseId) {
+      const p = _allPurchases.find(x => x.id_compra == purchaseId);
+      if (p) {
+        // Pre-seleccionar proyecto para filtrar tareas
+        if (p.id_proyecto) {
+          fillProjectsSelect(p.id_proyecto);
+          fillTareasSelect(p.id_tarea);
+        } else if (p.id_tarea) {
+          const linkedTask = _allTasks.find(t => t.id_tarea == p.id_tarea);
+          if (linkedTask) { fillProjectsSelect(linkedTask.id_proyecto); fillTareasSelect(p.id_tarea); }
+          else fillTareasSelect(p.id_tarea);
+        }
+        f('field-pur-producto',   p.producto || '');
+        f('field-pur-desc',       p.descripcion || '');
+        f('field-pur-cantidad',   p.cantidad || 1);
+        f('field-pur-vunit',      p.valor_unitario || 0);
+        f('field-pur-solicitante',p.id_solicitante || '');
+        f('field-pur-responsable',p.id_responsable || '');
+        f('field-pur-dias',       p.dias_arribo || 0);
+        f('field-pur-arribo-nec', p.fecha_arribo_necesaria || '');
+        f('field-pur-arribo-est', p.fecha_arribo_estimada || '');
+        f('field-pur-notas',      p.notas || '');
+        f('field-pur-links',      p.links_facturas || '');
+        // Timestamps
+        f('field-pur-f-sol',  p.fecha_solicitud || '');
+        f('field-pur-f-psol', p.fecha_presupuesto_solic || '');
+        f('field-pur-f-prec', p.fecha_presupuesto_recib || '');
+        f('field-pur-f-oc',   p.fecha_oc_emitida || '');
+        f('field-pur-f-comp', p.fecha_comprometida || '');
+        f('field-pur-f-ent',  p.fecha_entregado || '');
+        // Estado
+        setEstadoUI(p.estado || 'solicitada');
+        updateTotal();
+        updateArriboEstimado();
+      }
+    } else {
+      // Nueva compra: resetear
+      ['field-pur-producto','field-pur-desc','field-pur-notas','field-pur-links',
+       'field-pur-arribo-nec','field-pur-arribo-est',
+       'field-pur-f-sol','field-pur-f-psol','field-pur-f-prec',
+       'field-pur-f-oc','field-pur-f-comp','field-pur-f-ent'].forEach(id => f(id, ''));
+      f('field-pur-cantidad', 1);
+      f('field-pur-vunit', 0);
+      f('field-pur-dias', 0);
+      document.getElementById('field-pur-vtotal').value = '$0.00';
+      setEstadoUI('solicitada');
+
+      // Si viene de una tarea, prellenar solicitante
+      if (presetTaskId) {
+        const task = _allTasks.find(t => t.id_tarea == presetTaskId);
+        if (task) {
+          const resp = _responsables.find(r => r.correo === task.responsable || r.nombre === task.responsable);
+          if (resp) f('field-pur-solicitante', resp.id_resp);
+        }
+      }
+    }
+
+    modal.classList.remove('hidden');
+  }
+
+  /* ── Estado custom dropdown ─────────────────────────────────── */
+  function setEstadoUI(val) {
+    document.getElementById('field-pur-estado').value = val;
+    const labels = {
+      'solicitada': '<span class="badge badge-pur-sol">Solicitada</span>',
+      'solicitando presupuesto': '<span class="badge badge-pur-pres">Solicitando Presupuesto</span>',
+      'presupuesto recibido': '<span class="badge badge-pur-prec">Presupuesto Recibido</span>',
+      'OC emitida': '<span class="badge badge-pur-oc">OC Emitida</span>',
+      'fecha comprometida': '<span class="badge badge-pur-comp">Fecha Comprometida</span>',
+      'entregado': '<span class="badge badge-pur-ent">Entregado</span>'
+    };
+    const lbl = document.getElementById('pur-estado-label');
+    if (lbl) lbl.innerHTML = labels[val] || val;
+  }
+
+  function initEstadoDropdown() {
+    const btn  = document.getElementById('btn-pur-estado');
+    const menu = document.getElementById('menu-pur-estado');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+      menu.style.flexDirection = 'column';
+    });
+    document.querySelectorAll('.pur-estado-item').forEach(item => {
+      item.addEventListener('click', () => {
+        setEstadoUI(item.dataset.value);
+        menu.style.display = 'none';
+      });
+    });
+    document.addEventListener('click', () => { if (menu) menu.style.display = 'none'; });
+  }
+
+  /* ── Cálculos inline ────────────────────────────────────────── */
+  function updateTotal() {
+    const cant = parseFloat(document.getElementById('field-pur-cantidad')?.value || 0);
+    const vunit = parseFloat(document.getElementById('field-pur-vunit')?.value || 0);
+    const total = cant * vunit;
+    const el = document.getElementById('field-pur-vtotal');
+    if (el) el.value = '$' + total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function updateArriboEstimado() {
+    const oc   = document.getElementById('field-pur-f-oc')?.value;
+    const dias = parseInt(document.getElementById('field-pur-dias')?.value || 0);
+    const est  = document.getElementById('field-pur-arribo-est');
+    if (!est) return;
+    if (oc && dias > 0) {
+      est.value = addDays(oc, dias);
+    } else {
+      est.value = '';
+    }
+  }
+
+  /* ── Guardar compra ─────────────────────────────────────────── */
+  async function savePurchase() {
+    const get = id => document.getElementById(id)?.value?.trim() ?? '';
+    const producto = get('field-pur-producto');
+    if (!producto) { UI.toast('El campo Producto es requerido', 'error'); return; }
+
+    const data = {
+      producto,
+      descripcion:            get('field-pur-desc')       || null,
+      id_proyecto:            get('field-pur-proyecto')   || null,
+      id_tarea:               get('field-pur-tarea')      || null,
+      cantidad:               parseFloat(get('field-pur-cantidad')) || 1,
+      valor_unitario:         parseFloat(get('field-pur-vunit'))    || 0,
+      id_solicitante:         get('field-pur-solicitante') || null,
+      id_responsable:         get('field-pur-responsable') || null,
+      estado:                 get('field-pur-estado')      || 'solicitada',
+      dias_arribo:            parseInt(get('field-pur-dias'))        || 0,
+      fecha_arribo_necesaria: get('field-pur-arribo-nec') || null,
+      notas:                  get('field-pur-notas')       || null,
+      links_facturas:         get('field-pur-links')       || null,
+      fecha_solicitud:        get('field-pur-f-sol')  || null,
+      fecha_presupuesto_solic:get('field-pur-f-psol') || null,
+      fecha_presupuesto_recib:get('field-pur-f-prec') || null,
+      fecha_oc_emitida:       get('field-pur-f-oc')   || null,
+      fecha_comprometida:     get('field-pur-f-comp') || null,
+      fecha_entregado:        get('field-pur-f-ent')  || null,
+    };
+
+    try {
+      let saved;
+      if (editingPurchaseId) {
+        saved = await API.updatePurchase(editingPurchaseId, data);
+        _allPurchases = _allPurchases.map(p => p.id_compra == editingPurchaseId ? saved : p);
+        UI.toast('Compra actualizada', 'success');
+      } else {
+        saved = await API.createPurchase(data);
+        _allPurchases.push(saved);
+        UI.toast('Compra creada', 'success');
+      }
+      document.getElementById('modal-purchase').classList.add('hidden');
+      updatePurchaseKPIs();
+      // Si la compra tiene tarea, actualizar la lista del modal-task si está abierto
+      if (saved.id_tarea && !document.getElementById('modal-task').classList.contains('hidden')) {
+        renderTaskPurchases(saved.id_tarea);
+      }
+      // Refrescar vista si estamos en purchases o combined
+      if (_currentView === 'purchases') GanttApp.loadPurchasesView(_allPurchases, _allTasks);
+      if (_currentView === 'combined')  refreshCombinedView();
+    } catch(e) { UI.toast(e.error || 'Error al guardar compra', 'error'); }
+  }
+
+  /* ── Eliminar compra ─────────────────────────────────────────── */
+  async function deletePurchase() {
+    if (!editingPurchaseId) return;
+    UI.confirmDelete = null; // override temporal
+    const yes = await new Promise(resolve => {
+      UI.toast('¿Eliminar esta compra?', 'warning');
+      const btn = document.getElementById('btn-delete-purchase');
+      const handler = async () => {
+        btn.removeEventListener('click', handler);
+        try {
+          await API.deletePurchase(editingPurchaseId);
+          _allPurchases = _allPurchases.filter(p => p.id_compra != editingPurchaseId);
+          document.getElementById('modal-purchase').classList.add('hidden');
+          updatePurchaseKPIs();
+          if (_currentView === 'purchases') GanttApp.loadPurchasesView(_allPurchases, _allTasks);
+          UI.toast('Compra eliminada', 'warning');
+        } catch(e) { UI.toast(e.error || 'Error al eliminar', 'error'); }
+        resolve(true);
+      };
+      // Simple confirm:
+      if (confirm('¿Seguro que deseas eliminar esta compra?')) handler();
+    });
+  }
+
+  /* ── Renderizar compras en modal-task ───────────────────────── */
+  async function renderTaskPurchases(taskId) {
+    const list = document.getElementById('task-purchases-list');
+    if (!list) return;
+    list.innerHTML = '<span style="color:var(--text-dim);font-size:11px">Cargando...</span>';
+    try {
+      const purchases = await API.getPurchasesByTask(taskId);
+      // Actualizar cache local
+      _allPurchases = _allPurchases.filter(p => p.id_tarea != taskId);
+      _allPurchases.push(...purchases);
+
+      if (purchases.length === 0) {
+        list.innerHTML = '<span style="color:var(--text-dim);font-size:11px">Sin compras asociadas.</span>';
+        return;
+      }
+      list.innerHTML = purchases.map(p => `
+        <div class="purchase-card" data-id="${p.id_compra}">
+          <div style="flex:1;min-width:0">
+            <div class="pc-name">${p.producto}</div>
+            <div class="pc-meta">${purStateBadge(p.estado)} ${p.fecha_arribo_necesaria ? '· Nec: ' + p.fecha_arribo_necesaria : ''}</div>
+          </div>
+          <span class="pc-value">${p.valor_total > 0 ? '$'+parseFloat(p.valor_total).toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</span>
+          <button class="btn btn-ghost btn-sm pc-edit" data-id="${p.id_compra}">✏️</button>
+        </div>
+      `).join('');
+      list.querySelectorAll('.pc-edit').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          openPurchaseModal(parseInt(btn.dataset.id));
+        });
+      });
+      list.querySelectorAll('.purchase-card').forEach(card => {
+        card.addEventListener('click', e => {
+          if (!e.target.closest('.pc-edit')) openPurchaseModal(parseInt(card.dataset.id));
+        });
+      });
+    } catch(e) {
+      list.innerHTML = '<span style="color:var(--red);font-size:11px">Error al cargar compras.</span>';
+    }
+  }
+
+  /* ── KPIs de compras ─────────────────────────────────────────── */
+  function updatePurchaseKPIs() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    let atrasoCompra = 0, atrasoEntrega = 0;
+    const ocStates = ['OC emitida','fecha comprometida','entregado'];
+
+    _allPurchases.forEach(p => {
+      if (p.estado === 'entregado') return;
+      const necesaria = p.fecha_arribo_necesaria ? new Date(p.fecha_arribo_necesaria + 'T00:00:00') : null;
+      const estimada  = p.fecha_arribo_estimada  ? new Date(p.fecha_arribo_estimada  + 'T00:00:00') : null;
+      if (necesaria) necesaria.setHours(0,0,0,0);
+      if (estimada)  estimada.setHours(0,0,0,0);
+
+      if (ocStates.includes(p.estado)) {
+        if (estimada && estimada < today) atrasoEntrega++;
+      } else {
+        if (necesaria) {
+          const deadline = new Date(necesaria);
+          deadline.setDate(deadline.getDate() - parseInt(p.dias_arribo || 0));
+          deadline.setHours(0,0,0,0);
+          if (deadline <= today) atrasoCompra++;
+        }
+      }
+    });
+
+    const eAtr = document.getElementById('stat-compra-atraso-proc');
+    const eEnt = document.getElementById('stat-compra-atraso-ent');
+    const kAtr = document.getElementById('kpi-compra-atraso');
+    const kEnt = document.getElementById('kpi-entrega-atraso');
+
+    if (eAtr) eAtr.textContent = atrasoCompra;
+    if (eEnt) eEnt.textContent = atrasoEntrega;
+    if (kAtr) kAtr.style.display = _allPurchases.length > 0 ? '' : 'none';
+    if (kEnt) kEnt.style.display = _allPurchases.length > 0 ? '' : 'none';
+    return { atrasoCompra, atrasoEntrega };
+  }
+
+  /* ── Toggle de Vista (Tasks / Purchases / Combined) ─────────── */
+  function setView(view) {
+    _currentView = view;
+    const ganttHere   = document.getElementById('gantt_here');
+    const purView     = document.getElementById('purchases-view');
+    const viewToggle  = document.getElementById('view-toggle-group');
+    const filterBar   = document.querySelector('.filter-bar');
+
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.id === `btn-view-${view}`);
+    });
+
+    if (view === 'tasks') {
+      ganttHere.style.display = '';
+      purView.style.display   = 'none';
+      if (filterBar) filterBar.style.display = '';
+      if (window.GanttApp && GanttApp.restoreTasksView) GanttApp.restoreTasksView();
+    } else if (view === 'purchases') {
+      ganttHere.style.display = '';
+      purView.style.display   = 'flex';
+      if (filterBar) filterBar.style.display = 'none';
+      GanttApp.loadPurchasesView(_allPurchases, _allTasks);
+    } else if (view === 'combined') {
+      ganttHere.style.display = '';
+      purView.style.display   = 'none';
+      if (filterBar) filterBar.style.display = 'none';
+      refreshCombinedView();
+    }
+
+    const colorToggleGroup = document.getElementById('btn-toggle-color-group');
+    if (colorToggleGroup) {
+      colorToggleGroup.style.display = '';
+    }
+  }
+
+  async function refreshCombinedView() {
+    try {
+      const tasks = await API.getTasks();
+      GanttApp.loadCombinedView(tasks, _allPurchases);
+    } catch(e) { UI.toast('Error al cargar vista consolidada', 'error'); }
+  }
+
+  /* ── Gráficos de Compras ────────────────────────────────────── */
+  function openChartsModal() {
+    const modal = document.getElementById('modal-charts');
+    if (modal) modal.classList.remove('hidden');
+    renderCharts();
+  }
+
+  function renderCharts() {
+    if (typeof Chart === 'undefined') return;
+    const estados = ['solicitada','solicitando presupuesto','presupuesto recibido','OC emitida','fecha comprometida','entregado'];
+    const labels  = ['Solicitada','Sol. Presupuesto','Pres. Recibido','OC Emitida','Fecha Comp.','Entregado'];
+    const colors  = ['#94a3b8','#fbbf24','#818cf8','#22d3ee','#c084fc','#34d399'];
+
+    const countByState   = estados.map(e => _allPurchases.filter(p => p.estado === e).length);
+    const expenseByState = estados.map(e =>
+      _allPurchases.filter(p => p.estado === e).reduce((s, p) => s + parseFloat(p.valor_total || 0), 0)
+    );
+
+    const opts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#e2e5f0', font: { family: 'Inter', size: 11 } } }
+      }
+    };
+
+    // Chart 1: Gasto por estado (Donut)
+    const ctxExp = document.getElementById('chart-expense-by-state');
+    if (ctxExp) {
+      if (_chartExpense) _chartExpense.destroy();
+      _chartExpense = new Chart(ctxExp, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: expenseByState, backgroundColor: colors, borderWidth: 0 }] },
+        options: { ...opts }
+      });
+    }
+
+    // Chart 2: Cantidad por estado (Bar)
+    const ctxCnt = document.getElementById('chart-count-by-state');
+    if (ctxCnt) {
+      if (_chartCount) _chartCount.destroy();
+      _chartCount = new Chart(ctxCnt, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Compras', data: countByState, backgroundColor: colors, borderRadius: 6 }] },
+        options: { ...opts, plugins: { ...opts.plugins, legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#3a3a55' } },
+            y: { ticks: { color: '#94a3b8', stepSize: 1 }, grid: { color: '#3a3a55' } }
+          }
+        }
+      });
+    }
+
+    // KPI summary en el modal
+    const kpiDiv = document.getElementById('chart-kpi-summary');
+    if (kpiDiv) {
+      const { atrasoCompra, atrasoEntrega } = updatePurchaseKPIs();
+      kpiDiv.innerHTML = `
+        <div style="background:var(--card);border:1px solid var(--border-light);border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">🚨</span>
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Atraso Compra</div>
+            <div style="font-size:28px;font-weight:700;color:var(--red);line-height:1">${atrasoCompra}</div>
+            <div style="font-size:10px;color:var(--text-dim)">Sin OC, fuera de plazo</div>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border-light);border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">📦</span>
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Atraso Entrega</div>
+            <div style="font-size:28px;font-weight:700;color:var(--amber);line-height:1">${atrasoEntrega}</div>
+            <div style="font-size:10px;color:var(--text-dim)">OC emitida, estimada vencida</div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  /* ── Init ───────────────────────────────────────────────────── */
+  async function init(tasks, responsables, subresps, projects) {
+    _allTasks        = tasks || [];
+    _responsables    = responsables || [];
+    _subresponsables = subresps || [];
+    _projects        = projects || [];
+
+    // Cargar todas las compras
+    try {
+      _allPurchases = await API.getPurchases();
+    } catch(e) { _allPurchases = []; }
+
+    updatePurchaseKPIs();
+
+    // Mostrar toggle de vista si hay proyecto seleccionado
+    const vtg = document.getElementById('view-toggle-group');
+    if (vtg) vtg.style.display = 'flex';
+
+    // Listeners del modal de compra
+    initEstadoDropdown();
+
+    document.getElementById('field-pur-proyecto')?.addEventListener('change', () => fillTareasSelect());
+    document.getElementById('field-pur-cantidad')?.addEventListener('input', updateTotal);
+    document.getElementById('field-pur-vunit')?.addEventListener('input', updateTotal);
+    document.getElementById('field-pur-dias')?.addEventListener('input', updateArriboEstimado);
+    document.getElementById('field-pur-f-oc')?.addEventListener('input', updateArriboEstimado);
+
+    document.getElementById('btn-save-purchase')?.addEventListener('click', savePurchase);
+    document.getElementById('btn-delete-purchase')?.addEventListener('click', deletePurchase);
+
+    // Nueva compra desde sidebar
+    document.getElementById('btn-new-purchase')?.addEventListener('click', () => {
+      document.getElementById('new-dropdown-menu').style.display = 'none';
+      openPurchaseModal();
+    });
+
+    // Nueva compra desde modal-task
+    document.getElementById('btn-new-purchase-from-task')?.addEventListener('click', e => {
+      const taskId = e.currentTarget.dataset.taskId;
+      openPurchaseModal(null, taskId ? parseInt(taskId) : null);
+    });
+
+    // Toggle de vista
+    document.getElementById('btn-view-tasks')?.addEventListener('click',     () => setView('tasks'));
+    document.getElementById('btn-view-purchases')?.addEventListener('click', () => setView('purchases'));
+    document.getElementById('btn-view-combined')?.addEventListener('click',  () => setView('combined'));
+
+    // Color toggle
+    document.getElementById('btn-toggle-color')?.addEventListener('click', () => {
+      if (typeof GanttApp.getColorMode !== 'function') return;
+      const current = GanttApp.getColorMode();
+      const next = current === 'project' ? 'responsable' : 'project';
+      GanttApp.setColorMode(next);
+      const btn = document.getElementById('btn-toggle-color');
+      if (btn) btn.innerHTML = next === 'project' ? '🎨 Proyecto' : '👤 Responsable';
+      
+      if (_currentView === 'combined') {
+        refreshCombinedView();
+      } else if (_currentView === 'purchases') {
+        GanttApp.loadPurchasesView(_allPurchases, _allTasks);
+      } else {
+        if (GanttApp.isAllProjects()) {
+           GanttApp.loadAllProjects();
+        } else {
+           const pid = GanttApp.getCurrentProjectId();
+           if (pid) GanttApp.loadProject(pid, null); // Color null uses default logic
+        }
+      }
+    });
+
+    // Gráficos
+    document.getElementById('btn-open-charts')?.addEventListener('click', openChartsModal);
+  }
+
+  return { init, openPurchaseModal, renderTaskPurchases, updatePurchaseKPIs, setView, getResponsableName };
+})();
+window.PurchaseModule = PurchaseModule;
 
 // ── Bootstrap ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   const loggedIn = await Auth.init();
-  if (!loggedIn) return; // Se bloquea y se muestra Auth modal
-  
+  if (!loggedIn) return;
+
   GanttApp.init();
   await UI.init();
+
+  // Inicializar modulo de compras
+  await PurchaseModule.init(
+    UI.getAllTasks(),
+    UI.getResponsables(),
+    UI.getSubresponsables(),
+    UI.getProjects()
+  );
+
+  // Interceptar la carga de proyectos para actualizar las tareas del módulo de compras
+  const origSelectProject = UI.selectProject;
+  UI.selectProject = async (id, color) => {
+    await origSelectProject(id, color);
+    PurchaseModule.init(
+      UI.getAllTasks(),
+      UI.getResponsables(),
+      UI.getSubresponsables(),
+      UI.getProjects()
+    );
+  };
 });

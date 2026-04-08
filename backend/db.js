@@ -67,6 +67,33 @@ const TABLES = [
     FOREIGN KEY (id_subresp)  REFERENCES subresponsables(id_subresp) ON DELETE SET NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
+  `CREATE TABLE IF NOT EXISTS compras (
+    id_compra               INT AUTO_INCREMENT PRIMARY KEY,
+    id_tarea                INT DEFAULT NULL,
+    id_proyecto             INT DEFAULT NULL,
+    producto                VARCHAR(255) NOT NULL,
+    descripcion             TEXT,
+    cantidad                INT DEFAULT 1,
+    valor_unitario          DECIMAL(12,2) DEFAULT 0.00,
+    valor_total             DECIMAL(12,2) DEFAULT 0.00,
+    id_solicitante          VARCHAR(255) DEFAULT NULL,
+    id_responsable          VARCHAR(255) DEFAULT NULL,
+    estado                  ENUM('solicitada','solicitando presupuesto','presupuesto recibido','OC emitida','fecha comprometida','entregado') DEFAULT 'solicitada',
+    dias_arribo             INT DEFAULT 0,
+    fecha_solicitud         DATE DEFAULT NULL,
+    fecha_presupuesto_solic DATE DEFAULT NULL,
+    fecha_presupuesto_recib DATE DEFAULT NULL,
+    fecha_oc_emitida        DATE DEFAULT NULL,
+    fecha_comprometida      DATE DEFAULT NULL,
+    fecha_entregado         DATE DEFAULT NULL,
+    fecha_arribo_estimada   DATE DEFAULT NULL,
+    fecha_arribo_necesaria  DATE DEFAULT NULL,
+    notas                   TEXT,
+    links_facturas          TEXT,
+    fecha_creacion          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_tarea)       REFERENCES tareas(id_tarea)      ON DELETE SET NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
   `CREATE TABLE IF NOT EXISTS notas (
     id_nota    INT AUTO_INCREMENT PRIMARY KEY,
     tarea      INT NOT NULL,
@@ -178,6 +205,28 @@ async function initDB() {
 
       for (const sql of TABLES) {
         await tempConn.query(sql);
+      }
+
+      // Hack to drop constraints safely on restart
+      try {
+        const [rows] = await tempConn.query(`
+          SELECT CONSTRAINT_NAME 
+          FROM information_schema.KEY_COLUMN_USAGE 
+          WHERE TABLE_NAME = 'compras' AND COLUMN_NAME IN ('id_solicitante', 'id_responsable') AND REFERENCED_TABLE_NAME IS NOT NULL
+        `);
+        for (let row of rows) {
+          await tempConn.query(`ALTER TABLE compras DROP FOREIGN KEY ${row.CONSTRAINT_NAME}`);
+        }
+        await tempConn.query(`ALTER TABLE compras MODIFY id_solicitante VARCHAR(255)`);
+        await tempConn.query(`ALTER TABLE compras MODIFY id_responsable VARCHAR(255)`);
+        
+        // Add id_proyecto as safe migration (try/catch avoids crashing if it exists)
+        try {
+          await tempConn.query(`ALTER TABLE compras ADD COLUMN id_proyecto INT DEFAULT NULL AFTER id_tarea`);
+          console.log('[DB] Columna id_proyecto agregada a compras');
+        } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') throw e; }
+      } catch (e) {
+        // ignore errors
       }
 
       await tempConn.end();

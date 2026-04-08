@@ -13,6 +13,7 @@ const subresponsablesRouter = require('./routes/subresponsables');
 const notesRouter      = require('./routes/notes');
 const authRouter       = require('./routes/auth');
 const usersRouter      = require('./routes/users');
+const purchasesRouter  = require('./routes/purchases');
 const { requireAuth }  = require('./middleware/auth');
 
 const app = express();
@@ -46,6 +47,8 @@ app.use('/api/resources',   requireAuth, resourcesRouter);
 app.use('/api/responsables', requireAuth, responsablesRouter);
 app.use('/api/subresponsables', requireAuth, subresponsablesRouter);
 app.use('/api/notes',       requireAuth, notesRouter);
+app.use('/api/purchases',   requireAuth, purchasesRouter);
+
 
 // Fallback → index.html
 app.get('*', (req, res) => {

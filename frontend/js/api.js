@@ -66,5 +66,13 @@ window.API = (() => {
     createUser:        (d)      => req('POST',   '/users', d),
     updateUser:        (id, d)  => req('PUT',    `/users/${id}`, d),
     deleteUser:        (id)     => req('DELETE', `/users/${id}`),
+
+    // Purchases
+    getPurchases:        ()         => req('GET',    '/purchases'),
+    getPurchase:         (id)       => req('GET',    `/purchases/${id}`),
+    getPurchasesByTask:  (taskId)   => req('GET',    `/purchases/task/${taskId}`),
+    createPurchase:      (d)        => req('POST',   '/purchases', d),
+    updatePurchase:      (id, d)    => req('PUT',    `/purchases/${id}`, d),
+    deletePurchase:      (id)       => req('DELETE', `/purchases/${id}`),
   };
 })();
