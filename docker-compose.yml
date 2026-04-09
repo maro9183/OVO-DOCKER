@@ -13,6 +13,7 @@ services:
       - "3307:3306"
     volumes:
       - ovo2-data:/var/lib/mysql
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
 
   app:
     build: .

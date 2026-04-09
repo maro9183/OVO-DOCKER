@@ -4,6 +4,7 @@
 -- ============================================================
 
 -- 1. Bases de datos y configuraciones iniciales
+SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- 2. Estructura de Tablas
