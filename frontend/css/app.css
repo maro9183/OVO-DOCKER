@@ -908,9 +908,9 @@ select.filter-select {
 }
 
 .gantt_task_progress {
+  background-color: rgba(0, 0, 0, 0.35) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px 0 0 6px !important;
-  opacity: 0.35 !important;
-  background: #fff !important;
 }
 
 .gantt_task_content {
@@ -929,11 +929,27 @@ select.filter-select {
 }
 
 .gantt_marker.today-marker {
-  background: var(--cyan) !important;
-  width: 2px !important;
-  opacity: 1;
-  z-index: 5 !important;
-  box-shadow: 0 0 8px var(--cyan), 0 0 16px rgba(34, 211, 238, 0.3);
+  background: var(--indigo);
+  opacity: 0.6;
+  z-index: 10;
+}
+
+.project-start-marker {
+  background: var(--red) !important;
+  opacity: 0.7;
+  z-index: 9;
+}
+.project-start-marker .gantt_marker_content {
+  background: var(--red) !important;
+}
+
+.project-end-marker {
+  background: var(--green) !important;
+  opacity: 0.7;
+  z-index: 9;
+}
+.project-end-marker .gantt_marker_content {
+  background: var(--green) !important;
 }
 
 .gantt_marker_content {

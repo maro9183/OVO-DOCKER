@@ -100,6 +100,7 @@ window.UI = (() => {
     document.getElementById('project-title').textContent = 'Cargando...';
     try {
       allTasks = await GanttApp.loadAllProjects();
+      updateActiveViewBtn(document.getElementById('btn-view-tasks'));
       document.getElementById('project-title').textContent = 'MENÚ';
       document.getElementById('project-badge').textContent = '';
       document.getElementById('project-badge').style.display = 'none';
@@ -112,6 +113,7 @@ window.UI = (() => {
     document.getElementById('project-title').textContent = 'Cargando...';
     try {
       await GanttApp.loadProject(id, color);
+      updateActiveViewBtn(document.getElementById('btn-view-tasks'));
       const p = projects.find(x => x.id_proyecto == id);
       document.getElementById('project-title').textContent = p ? p.nombre_proyecto : 'Proyecto';
       document.getElementById('project-badge').textContent = p ? p.proyecto : '';
@@ -123,7 +125,332 @@ window.UI = (() => {
       allTasks = await API.getProjectTasks(id);
       renderProjectList();
       showMainUI();
-    } catch (e) { toast('Error al cargar tareas', 'error'); }
+    } catch (e) { toast('Error al cargar tareas', 'error'); console.error('[selectProject] Error:', e); }
+  }
+
+  /* ── View Switching ─────────────────────────────────────── */
+  function updateActiveViewBtn(activeBtn) {
+    const btnTasks = document.getElementById('btn-view-tasks');
+    const btnPurchases = document.getElementById('btn-view-purchases');
+    [btnTasks, btnPurchases].forEach(b => {
+      if(b) {
+        b.classList.remove('btn-primary', 'active');
+        b.classList.add('btn-ghost');
+      }
+    });
+    if(activeBtn) {
+      activeBtn.classList.remove('btn-ghost');
+      activeBtn.classList.add('btn-primary', 'active');
+    }
+  }
+
+  // Event Listeners para cambios de vista
+  document.addEventListener('click', async (e) => {
+    if (e.target.id === 'btn-view-tasks') {
+      updateActiveViewBtn(e.target);
+      const pv = document.getElementById('purchases-view');
+      if (pv) pv.style.display = 'none';
+      window.GanttApp.restoreTasksView();
+    }
+    if (e.target.id === 'btn-view-purchases') {
+      updateActiveViewBtn(e.target);
+      const pv = document.getElementById('purchases-view');
+      if (pv) pv.style.display = 'flex';
+      
+      const purchases = await API.getPurchases();
+      window.GanttApp.loadPurchasesView(purchases);
+    }
+    
+    // Abrir Gráficos de Compras
+    if (e.target.id === 'btn-open-charts') {
+      openChartsModal();
+    }
+  });
+
+  /* ── Purchase Module ─────────────────────────────────────── */
+  const PurchaseModule = (() => {
+    async function openPurchaseModal(id) {
+      try {
+        const p = await API.getPurchase(id);
+        if (!p) return;
+
+        document.getElementById('field-pur-id').value = p.id_compra;
+        document.getElementById('field-pur-producto').value = p.producto || '';
+        document.getElementById('field-pur-proyecto').value = p.id_proyecto || '';
+        document.getElementById('field-pur-estado').value = p.estado || 'solicitada';
+
+        // Poblado de selects
+        const respSel = document.getElementById('field-pur-responsable');
+        const solSel = document.getElementById('field-pur-solicitante');
+        const opts = responsables.map(r => `<option value="${r.id_resp}">${r.nombre}</option>`).join('');
+        respSel.innerHTML = '<option value="">Seleccionar responsable...</option>' + opts;
+        solSel.innerHTML = '<option value="">Seleccionar solicitante...</option>' + opts;
+        
+        respSel.value = p.id_responsable || '';
+        solSel.value = p.id_solicitante || '';
+
+        const taskSel = document.getElementById('field-pur-tarea');
+        const projTasks = allTasks.filter(t => t.id_proyecto == p.id_proyecto);
+        taskSel.innerHTML = '<option value="">-- Sin tarea (Compra de obra) --</option>' + 
+                           projTasks.map(t => `<option value="${t.id_tarea}">${t.descripcion}</option>`).join('');
+        taskSel.value = p.id_tarea || '';
+
+        // Fechas
+        const fmt = d => d ? d.split('T')[0] : '';
+        document.getElementById('field-pur-f-solicitud').value = fmt(p.fecha_solicitud);
+        document.getElementById('field-pur-f-arribo-nec').value = fmt(p.fecha_arribo_necesaria);
+        document.getElementById('field-pur-f-oc').value = fmt(p.fecha_oc_emitida);
+        document.getElementById('field-pur-f-comprometida').value = fmt(p.fecha_comprometida);
+        document.getElementById('field-pur-f-entregado').value = fmt(p.fecha_entregado);
+
+        document.getElementById('field-pur-cantidad').value = p.cantidad || 1;
+        document.getElementById('field-pur-valor').value = p.valor_unitario || 0;
+
+        document.getElementById('modal-purchase').classList.remove('hidden');
+      } catch (e) {
+        console.error(e);
+        toast('Error al cargar datos de la compra', 'error');
+      }
+    }
+
+    async function savePurchase() {
+      const id = document.getElementById('field-pur-id').value;
+      const data = {
+        producto: document.getElementById('field-pur-producto').value,
+        id_proyecto: document.getElementById('field-pur-proyecto').value || null,
+        id_tarea: document.getElementById('field-pur-tarea').value || null,
+        id_responsable: document.getElementById('field-pur-responsable').value || null,
+        id_solicitante: document.getElementById('field-pur-solicitante').value || null,
+        estado: document.getElementById('field-pur-estado').value,
+        fecha_solicitud: document.getElementById('field-pur-f-solicitud').value || null,
+        fecha_arribo_necesaria: document.getElementById('field-pur-f-arribo-nec').value || null,
+        fecha_oc_emitida: document.getElementById('field-pur-f-oc').value || null,
+        fecha_comprometida: document.getElementById('field-pur-f-comprometida').value || null,
+        fecha_entregado: document.getElementById('field-pur-f-entregado').value || null,
+        cantidad: parseFloat(document.getElementById('field-pur-cantidad').value) || 1,
+        valor_unitario: parseFloat(document.getElementById('field-pur-valor').value) || 0
+      };
+
+      try {
+        await API.updatePurchase(id, data);
+        toast('Compra actualizada correctamente', 'success');
+        document.getElementById('modal-purchase').classList.add('hidden');
+        
+        // Refrescar vista si estamos en compras
+        if (document.getElementById('btn-view-purchases').classList.contains('active')) {
+          const pur = await API.getPurchases();
+          window.GanttApp.loadPurchasesView(pur);
+        }
+      } catch (e) {
+        toast('Error al guardar los cambios en la compra', 'error');
+      }
+    }
+
+    async function deletePurchase() {
+      const id = document.getElementById('field-pur-id').value;
+      const agreed = await showConfirm('Eliminar Compra', '¿Estás seguro de eliminar este registro de compra?', 'Eliminar');
+      if (!agreed) return;
+
+      try {
+        await API.deletePurchase(id);
+        toast('Compra eliminada', 'warning');
+        document.getElementById('modal-purchase').classList.add('hidden');
+        if (document.getElementById('btn-view-purchases').classList.contains('active')) {
+          const pur = await API.getPurchases();
+          window.GanttApp.loadPurchasesView(pur);
+        }
+      } catch (e) {
+        toast('Error al eliminar la compra', 'error');
+      }
+    }
+
+    function getResponsableName(id) {
+      if (!id) return '-';
+      const strId = String(id);
+      if (strId.startsWith('R-')) {
+         const rid = parseInt(strId.replace('R-', ''));
+         const r = responsables.find(x => x.id_resp == rid);
+         return r ? r.nombre : strId;
+      }
+      if (strId.startsWith('S-')) {
+         const sid = parseInt(strId.replace('S-', ''));
+         const s = subresponsables.find(x => x.id_subresp == sid);
+         return s ? s.nombre : strId;
+      }
+      const r = responsables.find(x => x.id_resp == id);
+      return r ? r.nombre : id;
+    }
+
+    return { openPurchaseModal, savePurchase, deletePurchase, getResponsableName };
+  })();
+  window.PurchaseModule = PurchaseModule;
+
+  /* ── Charts Logic ────────────────────────────────────────── */
+  let expenseChart = null;
+  let countChart = null;
+
+  async function openChartsModal() {
+    const modal = document.getElementById('modal-charts');
+    if (!modal) return;
+    
+    // Remover clase hidden primero
+    modal.classList.remove('hidden');
+    
+    // Forzar un pequeño reflow y esperar a que el navegador procese el cambio de visibilidad
+    // Esto es CRÍTICO para que los <canvas> tengan dimensiones válidas.
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        renderPurchaseCharts();
+      }, 50);
+    });
+  }
+
+  function renderPurchaseCharts() {
+    if (!window.GanttApp) return;
+    // Obtener tareas usando la nueva función exportada
+    const allTasks = window.GanttApp.getAllTasks() || [];
+    
+    // Filtrado robusto (es_compra, _es_compra o tipo compra)
+    const purchases = allTasks.filter(t => t.es_compra || t._es_compra || t.type === 'purchase');
+
+    const summaryContainer = document.getElementById('chart-kpi-summary');
+    if (purchases.length === 0) {
+      if (summaryContainer) summaryContainer.innerHTML = '<div style="color:var(--text-muted); padding:20px; text-align:center; width:100%">No hay datos de compra cargados en este momento.</div>';
+      return;
+    }
+
+    // Agrupar datos por estado
+    const stats = {};
+    const counts = {};
+    purchases.forEach(p => {
+      // Normalizar el estado
+      let state = p._estado || p.estado || 'Pendiente';
+      // Mapeo amigable para el gráfico
+      if (state === 'No comenzada') state = 'Pendiente';
+      
+      const costValue = p._raw?.costo_tarea || p._costo || p._compra?.valor_unitario || 0;
+      const cost = parseFloat(costValue) || 0;
+      
+      stats[state] = (stats[state] || 0) + cost;
+      counts[state] = (counts[state] || 0) + 1;
+    });
+
+    const labels = Object.keys(stats);
+    const dataExpense = Object.values(stats);
+    const dataCount = Object.values(counts);
+
+    // Paleta de colores consistente
+    const colorMap = {
+      'Finalizada': '#10b981',
+      'entregado': '#10b981',
+      'Entregado': '#10b981',
+      'En progreso': '#3b82f6',
+      'OC emitida': '#f59e0b',
+      'Pendiente': '#6366f1',
+      'Bloqueada': '#ef4444',
+      'Retrasada': '#ef4444'
+    };
+    const colors = labels.map(l => colorMap[l] || '#94a3b8');
+
+    // Destruir instancias previas obligatoriamente
+    if (expenseChart) { expenseChart.destroy(); expenseChart = null; }
+    if (countChart) { countChart.destroy(); countChart = null; }
+
+    try {
+      const canvasExp = document.getElementById('chart-expense-by-state');
+      const canvasCount = document.getElementById('chart-count-by-state');
+      
+      if (!canvasExp || !canvasCount) return;
+
+      const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { 
+            position: 'bottom', 
+            labels: { color: '#e2e5f0', padding: 15, font: { size: 10, weight: '600' } } 
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                let value = context.raw;
+                if (context.datasetIndex === 0 && context.chart.canvas.id === 'chart-expense-by-state') {
+                  return ' Gasto: $' + value.toLocaleString();
+                }
+                return ' Cantidad: ' + value;
+              }
+            }
+          }
+        }
+      };
+
+      expenseChart = new Chart(canvasExp.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataExpense,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#1e1e2f',
+            hoverOffset: 15
+          }]
+        },
+        options: commonOptions
+      });
+
+      countChart = new Chart(canvasCount.getContext('2d'), {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataCount,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#1e1e2f',
+            hoverOffset: 15
+          }]
+        },
+        options: commonOptions
+      });
+
+      // KPI Summary (Alertas de Atraso)
+      const today = new Date(); today.setHours(0,0,0,0);
+      
+      const delayedCount = purchases.filter(p => {
+         const s = p._estado || '';
+         if (s === 'Finalizada' || s === 'Entregado' || s === 'entregado') return false;
+         
+         const fNecStr = p._compra?.f_arribo_nec || p._raw?.f_arribo_nec;
+         if (!fNecStr) return false;
+         
+         const fNec = new Date(fNecStr + 'T00:00:00');
+         return fNec < today;
+      }).length;
+
+      const noOCCount = purchases.filter(p => {
+        const s = p._status || p._estado || '';
+        if (s === 'Finalizada' || s === 'Entregado') return false;
+        return !p._compra?.f_oc && !p._raw?.f_oc;
+      }).length;
+
+      if (summaryContainer) {
+        summaryContainer.innerHTML = `
+          <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); padding:16px; border-radius:12px; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+            <div style="font-size:10px; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:4px">Atrasos Críticos</div>
+            <div style="font-size:32px; font-weight:900; color:#ef4444; text-shadow:0 0 10px rgba(239,68,68,0.3)">${delayedCount}</div>
+            <div style="font-size:10px; color:#ef444499">Vencidos o fuera de plazo</div>
+          </div>
+          <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.2); padding:16px; border-radius:12px; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+            <div style="font-size:10px; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:4px">Compras sin OC</div>
+            <div style="font-size:32px; font-weight:900; color:#f59e0b; text-shadow:0 0 10px rgba(245,158,11,0.3)">${noOCCount}</div>
+            <div style="font-size:10px; color:#f59e0b99">Pendientes de gestión</div>
+          </div>
+        `;
+      }
+    } catch (err) {
+      console.error("[renderPurchaseCharts] Error:", err);
+    }
   }
 
   function showMainUI() {
@@ -188,12 +515,24 @@ window.UI = (() => {
     f('field-descripcion', raw?.descripcion  || '');
     f('field-costo',       raw?.costo_tarea  || 0);
 
-    // Fecha inicio: priorizar drag del gantt si existe
+    // Fecha inicio / fin Baseline y Real
     let startVal = raw?.fecha_inicio || today();
     if (ganttTask && ganttTask.start_date) {
       startVal = gantt.date.date_to_str('%Y-%m-%d')(ganttTask.start_date);
     }
     f('field-fecha-inicio', startVal);
+    
+    // Fechas Multi-Capas (Proyectadas y Reales)
+    f('field-fecha-inicio-proyectada', raw?.fecha_inicio_proyectada || startVal);
+    f('field-fecha-fin-proyectada', raw?.fecha_fin_proyectada || '');
+    f('field-fecha-real-iniciada', raw?.fecha_real_iniciada || '');
+    f('field-fecha-completada', raw?.fecha_completada || '');
+
+    // Permisos Baseline (Solo Admin edita)
+    const isAdmin = window.Auth && window.Auth.getUser()?.es_admin;
+    const isEditing = !!editingTaskId;
+    document.getElementById('field-fecha-inicio').disabled = (!isAdmin && isEditing);
+    // document.getElementById('field-duracion').disabled = (!isAdmin && isEditing); // La duración permitimos editarla para desplazar la proyección
 
     // Duración: priorizar drag del gantt
     let durVal = raw?.duracion_dias || 1;
@@ -215,6 +554,40 @@ window.UI = (() => {
     document.getElementById('label-avance').textContent = `${Math.round(avance)}%`;
     document.getElementById('label-avance-r').textContent = `${Math.round(avance)}%`;
 
+    // Compra Consolidated Toggle Lógica
+    const chkEsCompra = document.getElementById('field-es-compra');
+    const secCompra   = document.getElementById('section-compra-fields');
+    
+    const hiddenGroups = ['group-tarea-fechas', 'group-tarea-costo', 'group-tarea-tipodias', 'group-tarea-avance', 'group-tarea-recursos', 'group-tarea-dependencias'];
+    
+    function toggleCompraMode(isC) {
+      secCompra.style.display = isC ? 'grid' : 'none';
+      hiddenGroups.forEach(g => {
+         const el = document.getElementById(g);
+         if (el) el.style.display = isC ? 'none' : 'block';
+      });
+      // Iluminar botón
+      const lbl = document.getElementById('label-es-compra');
+      if (lbl) {
+        lbl.style.background = isC ? 'rgba(34, 211, 238, 0.15)' : 'transparent';
+        lbl.style.border = isC ? '1px solid rgba(34, 211, 238, 0.5)' : '1px solid transparent';
+      }
+    }
+
+    if (chkEsCompra && secCompra) {
+      chkEsCompra.checked = !!raw?.es_compra;
+      toggleCompraMode(chkEsCompra.checked);
+      chkEsCompra.onchange = () => toggleCompraMode(chkEsCompra.checked);
+      
+      // Llenar campos si existe
+      f('field-compra-cantidad', raw?.cantidad || 1);
+      f('field-compra-valor', raw?.valor_unitario || 0);
+      f('field-compra-f-sol', raw?.fecha_solicitud || today());
+      f('field-compra-f-arr', raw?.fecha_arribo_necesaria || '');
+      f('field-compra-f-oc', raw?.fecha_oc_emitida || '');
+      f('field-compra-f-comp', raw?.fecha_comprometida || '');
+      f('field-compra-f-ent', raw?.fecha_entregado || '');
+    }
     // Proyecto
     const projSel = document.getElementById('field-proyecto');
     projSel.innerHTML = projects.map(p =>
@@ -301,8 +674,6 @@ window.UI = (() => {
     if (purGroup) {
       purGroup.style.display = editingTaskId ? 'block' : 'none';
       if (editingTaskId) {
-        const purBtn = document.getElementById('btn-new-purchase-from-task');
-        if (purBtn) purBtn.dataset.taskId = editingTaskId;
         PurchaseModule.renderTaskPurchases(editingTaskId);
       }
     }
@@ -355,20 +726,35 @@ window.UI = (() => {
     const tipoDias = document.querySelector('input[name="tipo_dias"]:checked')?.value || 'calendario';
     const depIds   = [...document.querySelectorAll('input[name="dep_check"]:checked')].map(c => c.value);
     const recIds   = [...document.querySelectorAll('input[name="rec_check"]:checked')].map(c => c.value);
+    
+    const isCompra = document.getElementById('field-es-compra')?.checked ? 1 : 0;
+    
     return {
-      id_proyecto:   +document.getElementById('field-proyecto').value,
-      id_parent:     document.getElementById('field-parent').value ? +document.getElementById('field-parent').value : null,
-      id_subresp:    document.getElementById('field-subresp').value ? +document.getElementById('field-subresp').value : null,
-      tarea:          document.getElementById('field-tarea').value.trim() || document.getElementById('field-descripcion').value.trim().substring(0, 50),
-      descripcion:    document.getElementById('field-descripcion').value.trim() || null,
-      fecha_inicio:   document.getElementById('field-fecha-inicio').value,
-      duracion_dias:  +document.getElementById('field-duracion').value || 1,
-      costo_tarea:    +document.getElementById('field-costo').value || 0,
-      responsable:    document.getElementById('field-responsable').value.trim() || null,
-      recursos:       recIds.join(',') || null,
-      tipo_dias:      tipoDias,
-      avance:         +document.getElementById('field-avance').value,
-      dependencias:   depIds.join(',') || null
+      id_proyecto:         +document.getElementById('field-proyecto').value,
+      id_parent:           document.getElementById('field-parent').value ? +document.getElementById('field-parent').value : null,
+      id_subresp:          document.getElementById('field-subresp').value ? +document.getElementById('field-subresp').value : null,
+      tarea:               document.getElementById('field-tarea').value.trim() || document.getElementById('field-descripcion').value.trim().substring(0, 50),
+      descripcion:         document.getElementById('field-descripcion').value.trim() || null,
+      fecha_inicio:        document.getElementById('field-fecha-inicio').value,
+      duracion_dias:       +document.getElementById('field-duracion').value || 1,
+      fecha_real_iniciada: document.getElementById('field-fecha-real-iniciada')?.value || null,
+      fecha_completada:    document.getElementById('field-fecha-completada')?.value || null,
+      costo_tarea:         +document.getElementById('field-costo').value || 0,
+      responsable:         document.getElementById('field-responsable').value.trim() || null,
+      recursos:            recIds.join(',') || null,
+      tipo_dias:           tipoDias,
+      avance:              +document.getElementById('field-avance').value,
+      dependencias:        depIds.join(',') || null,
+      es_compra:           isCompra,
+      compraData:          isCompra ? {
+        cantidad:               +document.getElementById('field-compra-cantidad')?.value || 0,
+        valor_unitario:         +document.getElementById('field-compra-valor')?.value || 0,
+        fecha_solicitud:        document.getElementById('field-compra-f-sol')?.value || null,
+        fecha_arribo_necesaria: document.getElementById('field-compra-f-arr')?.value || null,
+        fecha_oc_emitida:       document.getElementById('field-compra-f-oc')?.value || null,
+        fecha_comprometida:     document.getElementById('field-compra-f-comp')?.value || null,
+        fecha_entregado:        document.getElementById('field-compra-f-ent')?.value || null
+      } : null
     };
   }
 
@@ -430,7 +816,10 @@ window.UI = (() => {
       await API.deleteTask(taskId);
       allTasks = allTasks.filter(t => t.id_tarea != taskId);
       GanttApp.removeTask(taskId);
+      
+      // Asegurar que cerramos el modal de edición si estaba abierto
       closeTaskModal();
+      
       toast('Tarea eliminada', 'warning');
     } catch (e) { toast(e.error || 'Error al eliminar', 'error'); }
   }
@@ -1149,10 +1538,18 @@ window.UI = (() => {
     }
 
     // Guardar proyecto
-    document.getElementById('btn-save-project').addEventListener('click', saveProject);
+    const btnSaveProj = document.getElementById('btn-save-project');
+    if (btnSaveProj) btnSaveProj.addEventListener('click', saveProject);
+
+    // Guardar compra
+    const btnSavePur = document.getElementById('btn-save-purchase');
+    if (btnSavePur) btnSavePur.addEventListener('click', PurchaseModule.savePurchase);
+    const btnDelPur = document.getElementById('btn-delete-purchase');
+    if (btnDelPur) btnDelPur.addEventListener('click', PurchaseModule.deletePurchase);
 
     // Guardar nota
-    document.getElementById('btn-save-note').addEventListener('click', saveNote);
+    const btnSaveNote = document.getElementById('btn-save-note');
+    if (btnSaveNote) btnSaveNote.addEventListener('click', saveNote);
 
     // Cerrar modal al click fuera
     document.querySelectorAll('.modal-overlay').forEach(overlay =>
@@ -1195,6 +1592,14 @@ window.UI = (() => {
     if (btnAddRecConf) btnAddRecConf.addEventListener('click', () => {
       openRecursoModal();
     });
+
+    // Toggle color mode
+    const btnToggleColor = document.getElementById('btn-toggle-color');
+    if (btnToggleColor) {
+      btnToggleColor.addEventListener('click', () => {
+        GanttApp.toggleColorMode();
+      });
+    }
 
     // Config Tabs
     document.querySelectorAll('.config-tab').forEach(tab => {
@@ -1400,597 +1805,11 @@ window.UI = (() => {
     getResponsables: () => responsables,
     getSubresponsables: () => subresponsables,
     getProjects: () => projects,
-    getAllTasks: () => allTasks
+    getAllTasks: () => allTasks,
+    getResponsableName: PurchaseModule.getResponsableName,
+    openPurchaseModal: PurchaseModule.openPurchaseModal
   };
 })();
-
-// ── PurchaseModule ─────────────────────────────────────────────
-const PurchaseModule = (() => {
-  let editingPurchaseId = null;
-  let _allPurchases     = [];
-  let _allTasks         = [];
-  let _responsables     = [];
-  let _subresponsables  = [];
-  let _projects         = [];
-  let _currentView      = 'tasks'; // 'tasks' | 'purchases' | 'combined'
-  let _chartsInitialized = false;
-  let _chartExpense = null, _chartCount = null;
-
-  /* ── Fecha helper ──────────────────────────────────────────── */
-  function addDays(dateStr, days) {
-    if (!dateStr || !days) return '';
-    const d = new Date(dateStr + 'T00:00:00');
-    d.setDate(d.getDate() + parseInt(days));
-    return d.toISOString().split('T')[0];
-  }
-
-  function purStateBadge(estado) {
-    const map = {
-      'solicitada':              'badge-pur-sol',
-      'solicitando presupuesto': 'badge-pur-pres',
-      'presupuesto recibido':    'badge-pur-prec',
-      'OC emitida':              'badge-pur-oc',
-      'fecha comprometida':      'badge-pur-comp',
-      'entregado':               'badge-pur-ent'
-    };
-    const cls = map[estado] || 'badge-pur-sol';
-    return `<span class="badge ${cls}">${estado||'—'}</span>`;
-  }
-
-  /* ── Poblar selects de responsables ────────────────────────── */
-  function fillResponsablesSelects() {
-    const combined = [
-      ..._responsables.map(r => ({ id: 'R-'+r.id_resp, name: '[Resp] '+r.nombre, old: String(r.id_resp) })),
-      ..._subresponsables.map(s => ({ id: 'S-'+s.id_subresp, name: '[Sub] '+s.nombre, old: String(s.id_subresp) }))
-    ];
-    ['field-pur-solicitante', 'field-pur-responsable'].forEach(id => {
-      const sel = document.getElementById(id);
-      if (!sel) return;
-      const cur = sel.value;
-      let html = '<option value="">-- Seleccionar --</option>';
-      for (const c of combined) {
-        html += `<option value="${c.id}">${c.name}</option>`;
-      }
-      sel.innerHTML = html;
-      if (cur) {
-        if (cur.startsWith('R-') || cur.startsWith('S-')) {
-          sel.value = cur;
-        } else {
-          const match = combined.find(x => x.old === cur);
-          if (match) sel.value = match.id;
-        }
-      }
-    });
-  }
-
-  /* ── Helper de búsqueda de nombre ── */
-  function getResponsableName(id) {
-    if (!id) return '';
-    if (id.startsWith('R-')) {
-      const rid = id.replace('R-', '');
-      const r = _responsables.find(x => String(x.id_resp) === rid);
-      return r ? r.nombre : id;
-    }
-    if (id.startsWith('S-')) {
-      const sid = id.replace('S-', '');
-      const s = _subresponsables.find(x => String(x.id_subresp) === sid);
-      return s ? s.nombre : id;
-    }
-    return id;
-  }
-
-  /* ── Poblar select de proyectos ────────────────────────────────── */
-  function fillProjectsSelect(presetProjectId = null) {
-    const sel = document.getElementById('field-pur-proyecto');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">-- Seleccionar Proyecto --</option>' +
-      _projects.map(p => `<option value="${p.id_proyecto}"${p.id_proyecto == presetProjectId ? ' selected' : ''}>${p.nombre_proyecto}</option>`).join('');
-    if (presetProjectId) sel.value = presetProjectId;
-  }
-
-  /* ── Poblar select de tareas (filtrado por proyecto) ─────────── */
-  function fillTareasSelect(presetTaskId = null) {
-    const sel = document.getElementById('field-pur-tarea');
-    const projSel = document.getElementById('field-pur-proyecto');
-    if (!sel) return;
-    const projId = projSel ? projSel.value : null;
-    const filteredTasks = projId ? _allTasks.filter(t => String(t.id_proyecto) === String(projId)) : _allTasks;
-    sel.innerHTML = '<option value="">-- Sin tarea asociada --</option>' +
-      filteredTasks.map(t => {
-        const label = `[${t.tarea || t.id_tarea}] ${t.descripcion || ''}`;
-        return `<option value="${t.id_tarea}"${t.id_tarea == presetTaskId ? ' selected' : ''}>${label}</option>`;
-      }).join('');
-    if (presetTaskId) sel.value = presetTaskId;
-  }
-
-  /* ── Abrir modal de compra ──────────────────────────────────── */
-  function openPurchaseModal(purchaseId = null, presetTaskId = null) {
-    editingPurchaseId = purchaseId;
-    const modal = document.getElementById('modal-purchase');
-    const title = document.getElementById('modal-purchase-title');
-    const delBtn = document.getElementById('btn-delete-purchase');
-    if (!modal) return;
-
-    title.textContent = purchaseId ? 'Editar Compra' : 'Nueva Compra';
-    delBtn.style.display = purchaseId ? 'inline-flex' : 'none';
-
-    fillResponsablesSelects();
-    // Pre-seleccionar proyecto si viene de una tarea
-    if (presetTaskId) {
-      const linkedTask = _allTasks.find(t => t.id_tarea == presetTaskId);
-      if (linkedTask) fillProjectsSelect(linkedTask.id_proyecto);
-      else fillProjectsSelect();
-    } else {
-      fillProjectsSelect();
-    }
-    fillTareasSelect(presetTaskId);
-
-    const f = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
-
-    if (purchaseId) {
-      const p = _allPurchases.find(x => x.id_compra == purchaseId);
-      if (p) {
-        // Pre-seleccionar proyecto para filtrar tareas
-        if (p.id_proyecto) {
-          fillProjectsSelect(p.id_proyecto);
-          fillTareasSelect(p.id_tarea);
-        } else if (p.id_tarea) {
-          const linkedTask = _allTasks.find(t => t.id_tarea == p.id_tarea);
-          if (linkedTask) { fillProjectsSelect(linkedTask.id_proyecto); fillTareasSelect(p.id_tarea); }
-          else fillTareasSelect(p.id_tarea);
-        }
-        f('field-pur-producto',   p.producto || '');
-        f('field-pur-desc',       p.descripcion || '');
-        f('field-pur-cantidad',   p.cantidad || 1);
-        f('field-pur-vunit',      p.valor_unitario || 0);
-        f('field-pur-solicitante',p.id_solicitante || '');
-        f('field-pur-responsable',p.id_responsable || '');
-        f('field-pur-dias',       p.dias_arribo || 0);
-        f('field-pur-arribo-nec', p.fecha_arribo_necesaria || '');
-        f('field-pur-arribo-est', p.fecha_arribo_estimada || '');
-        f('field-pur-notas',      p.notas || '');
-        f('field-pur-links',      p.links_facturas || '');
-        // Timestamps
-        f('field-pur-f-sol',  p.fecha_solicitud || '');
-        f('field-pur-f-psol', p.fecha_presupuesto_solic || '');
-        f('field-pur-f-prec', p.fecha_presupuesto_recib || '');
-        f('field-pur-f-oc',   p.fecha_oc_emitida || '');
-        f('field-pur-f-comp', p.fecha_comprometida || '');
-        f('field-pur-f-ent',  p.fecha_entregado || '');
-        // Estado
-        setEstadoUI(p.estado || 'solicitada');
-        updateTotal();
-        updateArriboEstimado();
-      }
-    } else {
-      // Nueva compra: resetear
-      ['field-pur-producto','field-pur-desc','field-pur-notas','field-pur-links',
-       'field-pur-arribo-nec','field-pur-arribo-est',
-       'field-pur-f-sol','field-pur-f-psol','field-pur-f-prec',
-       'field-pur-f-oc','field-pur-f-comp','field-pur-f-ent'].forEach(id => f(id, ''));
-      f('field-pur-cantidad', 1);
-      f('field-pur-vunit', 0);
-      f('field-pur-dias', 0);
-      document.getElementById('field-pur-vtotal').value = '$0.00';
-      setEstadoUI('solicitada');
-
-      // Si viene de una tarea, prellenar solicitante
-      if (presetTaskId) {
-        const task = _allTasks.find(t => t.id_tarea == presetTaskId);
-        if (task) {
-          const resp = _responsables.find(r => r.correo === task.responsable || r.nombre === task.responsable);
-          if (resp) f('field-pur-solicitante', resp.id_resp);
-        }
-      }
-    }
-
-    modal.classList.remove('hidden');
-  }
-
-  /* ── Estado custom dropdown ─────────────────────────────────── */
-  function setEstadoUI(val) {
-    document.getElementById('field-pur-estado').value = val;
-    const labels = {
-      'solicitada': '<span class="badge badge-pur-sol">Solicitada</span>',
-      'solicitando presupuesto': '<span class="badge badge-pur-pres">Solicitando Presupuesto</span>',
-      'presupuesto recibido': '<span class="badge badge-pur-prec">Presupuesto Recibido</span>',
-      'OC emitida': '<span class="badge badge-pur-oc">OC Emitida</span>',
-      'fecha comprometida': '<span class="badge badge-pur-comp">Fecha Comprometida</span>',
-      'entregado': '<span class="badge badge-pur-ent">Entregado</span>'
-    };
-    const lbl = document.getElementById('pur-estado-label');
-    if (lbl) lbl.innerHTML = labels[val] || val;
-  }
-
-  function initEstadoDropdown() {
-    const btn  = document.getElementById('btn-pur-estado');
-    const menu = document.getElementById('menu-pur-estado');
-    if (!btn || !menu) return;
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
-      menu.style.flexDirection = 'column';
-    });
-    document.querySelectorAll('.pur-estado-item').forEach(item => {
-      item.addEventListener('click', () => {
-        setEstadoUI(item.dataset.value);
-        menu.style.display = 'none';
-      });
-    });
-    document.addEventListener('click', () => { if (menu) menu.style.display = 'none'; });
-  }
-
-  /* ── Cálculos inline ────────────────────────────────────────── */
-  function updateTotal() {
-    const cant = parseFloat(document.getElementById('field-pur-cantidad')?.value || 0);
-    const vunit = parseFloat(document.getElementById('field-pur-vunit')?.value || 0);
-    const total = cant * vunit;
-    const el = document.getElementById('field-pur-vtotal');
-    if (el) el.value = '$' + total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  function updateArriboEstimado() {
-    const oc   = document.getElementById('field-pur-f-oc')?.value;
-    const dias = parseInt(document.getElementById('field-pur-dias')?.value || 0);
-    const est  = document.getElementById('field-pur-arribo-est');
-    if (!est) return;
-    if (oc && dias > 0) {
-      est.value = addDays(oc, dias);
-    } else {
-      est.value = '';
-    }
-  }
-
-  /* ── Guardar compra ─────────────────────────────────────────── */
-  async function savePurchase() {
-    const get = id => document.getElementById(id)?.value?.trim() ?? '';
-    const producto = get('field-pur-producto');
-    if (!producto) { UI.toast('El campo Producto es requerido', 'error'); return; }
-
-    const data = {
-      producto,
-      descripcion:            get('field-pur-desc')       || null,
-      id_proyecto:            get('field-pur-proyecto')   || null,
-      id_tarea:               get('field-pur-tarea')      || null,
-      cantidad:               parseFloat(get('field-pur-cantidad')) || 1,
-      valor_unitario:         parseFloat(get('field-pur-vunit'))    || 0,
-      id_solicitante:         get('field-pur-solicitante') || null,
-      id_responsable:         get('field-pur-responsable') || null,
-      estado:                 get('field-pur-estado')      || 'solicitada',
-      dias_arribo:            parseInt(get('field-pur-dias'))        || 0,
-      fecha_arribo_necesaria: get('field-pur-arribo-nec') || null,
-      notas:                  get('field-pur-notas')       || null,
-      links_facturas:         get('field-pur-links')       || null,
-      fecha_solicitud:        get('field-pur-f-sol')  || null,
-      fecha_presupuesto_solic:get('field-pur-f-psol') || null,
-      fecha_presupuesto_recib:get('field-pur-f-prec') || null,
-      fecha_oc_emitida:       get('field-pur-f-oc')   || null,
-      fecha_comprometida:     get('field-pur-f-comp') || null,
-      fecha_entregado:        get('field-pur-f-ent')  || null,
-    };
-
-    try {
-      let saved;
-      if (editingPurchaseId) {
-        saved = await API.updatePurchase(editingPurchaseId, data);
-        _allPurchases = _allPurchases.map(p => p.id_compra == editingPurchaseId ? saved : p);
-        UI.toast('Compra actualizada', 'success');
-      } else {
-        saved = await API.createPurchase(data);
-        _allPurchases.push(saved);
-        UI.toast('Compra creada', 'success');
-      }
-      document.getElementById('modal-purchase').classList.add('hidden');
-      updatePurchaseKPIs();
-      // Si la compra tiene tarea, actualizar la lista del modal-task si está abierto
-      if (saved.id_tarea && !document.getElementById('modal-task').classList.contains('hidden')) {
-        renderTaskPurchases(saved.id_tarea);
-      }
-      // Refrescar vista si estamos en purchases o combined
-      if (_currentView === 'purchases') GanttApp.loadPurchasesView(_allPurchases, _allTasks);
-      if (_currentView === 'combined')  refreshCombinedView();
-    } catch(e) { UI.toast(e.error || 'Error al guardar compra', 'error'); }
-  }
-
-  /* ── Eliminar compra ─────────────────────────────────────────── */
-  async function deletePurchase() {
-    if (!editingPurchaseId) return;
-    UI.confirmDelete = null; // override temporal
-    const yes = await new Promise(resolve => {
-      UI.toast('¿Eliminar esta compra?', 'warning');
-      const btn = document.getElementById('btn-delete-purchase');
-      const handler = async () => {
-        btn.removeEventListener('click', handler);
-        try {
-          await API.deletePurchase(editingPurchaseId);
-          _allPurchases = _allPurchases.filter(p => p.id_compra != editingPurchaseId);
-          document.getElementById('modal-purchase').classList.add('hidden');
-          updatePurchaseKPIs();
-          if (_currentView === 'purchases') GanttApp.loadPurchasesView(_allPurchases, _allTasks);
-          UI.toast('Compra eliminada', 'warning');
-        } catch(e) { UI.toast(e.error || 'Error al eliminar', 'error'); }
-        resolve(true);
-      };
-      // Simple confirm:
-      if (confirm('¿Seguro que deseas eliminar esta compra?')) handler();
-    });
-  }
-
-  /* ── Renderizar compras en modal-task ───────────────────────── */
-  async function renderTaskPurchases(taskId) {
-    const list = document.getElementById('task-purchases-list');
-    if (!list) return;
-    list.innerHTML = '<span style="color:var(--text-dim);font-size:11px">Cargando...</span>';
-    try {
-      const purchases = await API.getPurchasesByTask(taskId);
-      // Actualizar cache local
-      _allPurchases = _allPurchases.filter(p => p.id_tarea != taskId);
-      _allPurchases.push(...purchases);
-
-      if (purchases.length === 0) {
-        list.innerHTML = '<span style="color:var(--text-dim);font-size:11px">Sin compras asociadas.</span>';
-        return;
-      }
-      list.innerHTML = purchases.map(p => `
-        <div class="purchase-card" data-id="${p.id_compra}">
-          <div style="flex:1;min-width:0">
-            <div class="pc-name">${p.producto}</div>
-            <div class="pc-meta">${purStateBadge(p.estado)} ${p.fecha_arribo_necesaria ? '· Nec: ' + p.fecha_arribo_necesaria : ''}</div>
-          </div>
-          <span class="pc-value">${p.valor_total > 0 ? '$'+parseFloat(p.valor_total).toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</span>
-          <button class="btn btn-ghost btn-sm pc-edit" data-id="${p.id_compra}">✏️</button>
-        </div>
-      `).join('');
-      list.querySelectorAll('.pc-edit').forEach(btn => {
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          openPurchaseModal(parseInt(btn.dataset.id));
-        });
-      });
-      list.querySelectorAll('.purchase-card').forEach(card => {
-        card.addEventListener('click', e => {
-          if (!e.target.closest('.pc-edit')) openPurchaseModal(parseInt(card.dataset.id));
-        });
-      });
-    } catch(e) {
-      list.innerHTML = '<span style="color:var(--red);font-size:11px">Error al cargar compras.</span>';
-    }
-  }
-
-  /* ── KPIs de compras ─────────────────────────────────────────── */
-  function updatePurchaseKPIs() {
-    const today = new Date(); today.setHours(0,0,0,0);
-    let atrasoCompra = 0, atrasoEntrega = 0;
-    const ocStates = ['OC emitida','fecha comprometida','entregado'];
-
-    _allPurchases.forEach(p => {
-      if (p.estado === 'entregado') return;
-      const necesaria = p.fecha_arribo_necesaria ? new Date(p.fecha_arribo_necesaria + 'T00:00:00') : null;
-      const estimada  = p.fecha_arribo_estimada  ? new Date(p.fecha_arribo_estimada  + 'T00:00:00') : null;
-      if (necesaria) necesaria.setHours(0,0,0,0);
-      if (estimada)  estimada.setHours(0,0,0,0);
-
-      if (ocStates.includes(p.estado)) {
-        if (estimada && estimada < today) atrasoEntrega++;
-      } else {
-        if (necesaria) {
-          const deadline = new Date(necesaria);
-          deadline.setDate(deadline.getDate() - parseInt(p.dias_arribo || 0));
-          deadline.setHours(0,0,0,0);
-          if (deadline <= today) atrasoCompra++;
-        }
-      }
-    });
-
-    const eAtr = document.getElementById('stat-compra-atraso-proc');
-    const eEnt = document.getElementById('stat-compra-atraso-ent');
-    const kAtr = document.getElementById('kpi-compra-atraso');
-    const kEnt = document.getElementById('kpi-entrega-atraso');
-
-    if (eAtr) eAtr.textContent = atrasoCompra;
-    if (eEnt) eEnt.textContent = atrasoEntrega;
-    if (kAtr) kAtr.style.display = _allPurchases.length > 0 ? '' : 'none';
-    if (kEnt) kEnt.style.display = _allPurchases.length > 0 ? '' : 'none';
-    return { atrasoCompra, atrasoEntrega };
-  }
-
-  /* ── Toggle de Vista (Tasks / Purchases / Combined) ─────────── */
-  function setView(view) {
-    _currentView = view;
-    const ganttHere   = document.getElementById('gantt_here');
-    const purView     = document.getElementById('purchases-view');
-    const viewToggle  = document.getElementById('view-toggle-group');
-    const filterBar   = document.querySelector('.filter-bar');
-
-    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.id === `btn-view-${view}`);
-    });
-
-    if (view === 'tasks') {
-      ganttHere.style.display = '';
-      purView.style.display   = 'none';
-      if (filterBar) filterBar.style.display = '';
-      if (window.GanttApp && GanttApp.restoreTasksView) GanttApp.restoreTasksView();
-    } else if (view === 'purchases') {
-      ganttHere.style.display = '';
-      purView.style.display   = 'flex';
-      if (filterBar) filterBar.style.display = 'none';
-      GanttApp.loadPurchasesView(_allPurchases, _allTasks);
-    } else if (view === 'combined') {
-      ganttHere.style.display = '';
-      purView.style.display   = 'none';
-      if (filterBar) filterBar.style.display = 'none';
-      refreshCombinedView();
-    }
-
-    const colorToggleGroup = document.getElementById('btn-toggle-color-group');
-    if (colorToggleGroup) {
-      colorToggleGroup.style.display = '';
-    }
-  }
-
-  async function refreshCombinedView() {
-    try {
-      const tasks = await API.getTasks();
-      GanttApp.loadCombinedView(tasks, _allPurchases);
-    } catch(e) { UI.toast('Error al cargar vista consolidada', 'error'); }
-  }
-
-  /* ── Gráficos de Compras ────────────────────────────────────── */
-  function openChartsModal() {
-    const modal = document.getElementById('modal-charts');
-    if (modal) modal.classList.remove('hidden');
-    renderCharts();
-  }
-
-  function renderCharts() {
-    if (typeof Chart === 'undefined') return;
-    const estados = ['solicitada','solicitando presupuesto','presupuesto recibido','OC emitida','fecha comprometida','entregado'];
-    const labels  = ['Solicitada','Sol. Presupuesto','Pres. Recibido','OC Emitida','Fecha Comp.','Entregado'];
-    const colors  = ['#94a3b8','#fbbf24','#818cf8','#22d3ee','#c084fc','#34d399'];
-
-    const countByState   = estados.map(e => _allPurchases.filter(p => p.estado === e).length);
-    const expenseByState = estados.map(e =>
-      _allPurchases.filter(p => p.estado === e).reduce((s, p) => s + parseFloat(p.valor_total || 0), 0)
-    );
-
-    const opts = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { color: '#e2e5f0', font: { family: 'Inter', size: 11 } } }
-      }
-    };
-
-    // Chart 1: Gasto por estado (Donut)
-    const ctxExp = document.getElementById('chart-expense-by-state');
-    if (ctxExp) {
-      if (_chartExpense) _chartExpense.destroy();
-      _chartExpense = new Chart(ctxExp, {
-        type: 'doughnut',
-        data: { labels, datasets: [{ data: expenseByState, backgroundColor: colors, borderWidth: 0 }] },
-        options: { ...opts }
-      });
-    }
-
-    // Chart 2: Cantidad por estado (Bar)
-    const ctxCnt = document.getElementById('chart-count-by-state');
-    if (ctxCnt) {
-      if (_chartCount) _chartCount.destroy();
-      _chartCount = new Chart(ctxCnt, {
-        type: 'bar',
-        data: { labels, datasets: [{ label: 'Compras', data: countByState, backgroundColor: colors, borderRadius: 6 }] },
-        options: { ...opts, plugins: { ...opts.plugins, legend: { display: false } },
-          scales: {
-            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#3a3a55' } },
-            y: { ticks: { color: '#94a3b8', stepSize: 1 }, grid: { color: '#3a3a55' } }
-          }
-        }
-      });
-    }
-
-    // KPI summary en el modal
-    const kpiDiv = document.getElementById('chart-kpi-summary');
-    if (kpiDiv) {
-      const { atrasoCompra, atrasoEntrega } = updatePurchaseKPIs();
-      kpiDiv.innerHTML = `
-        <div style="background:var(--card);border:1px solid var(--border-light);border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:12px">
-          <span style="font-size:24px">🚨</span>
-          <div>
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Atraso Compra</div>
-            <div style="font-size:28px;font-weight:700;color:var(--red);line-height:1">${atrasoCompra}</div>
-            <div style="font-size:10px;color:var(--text-dim)">Sin OC, fuera de plazo</div>
-          </div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border-light);border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:12px">
-          <span style="font-size:24px">📦</span>
-          <div>
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Atraso Entrega</div>
-            <div style="font-size:28px;font-weight:700;color:var(--amber);line-height:1">${atrasoEntrega}</div>
-            <div style="font-size:10px;color:var(--text-dim)">OC emitida, estimada vencida</div>
-          </div>
-        </div>
-      `;
-    }
-  }
-
-  /* ── Init ───────────────────────────────────────────────────── */
-  async function init(tasks, responsables, subresps, projects) {
-    _allTasks        = tasks || [];
-    _responsables    = responsables || [];
-    _subresponsables = subresps || [];
-    _projects        = projects || [];
-
-    // Cargar todas las compras
-    try {
-      _allPurchases = await API.getPurchases();
-    } catch(e) { _allPurchases = []; }
-
-    updatePurchaseKPIs();
-
-    // Mostrar toggle de vista si hay proyecto seleccionado
-    const vtg = document.getElementById('view-toggle-group');
-    if (vtg) vtg.style.display = 'flex';
-
-    // Listeners del modal de compra
-    initEstadoDropdown();
-
-    document.getElementById('field-pur-proyecto')?.addEventListener('change', () => fillTareasSelect());
-    document.getElementById('field-pur-cantidad')?.addEventListener('input', updateTotal);
-    document.getElementById('field-pur-vunit')?.addEventListener('input', updateTotal);
-    document.getElementById('field-pur-dias')?.addEventListener('input', updateArriboEstimado);
-    document.getElementById('field-pur-f-oc')?.addEventListener('input', updateArriboEstimado);
-
-    document.getElementById('btn-save-purchase')?.addEventListener('click', savePurchase);
-    document.getElementById('btn-delete-purchase')?.addEventListener('click', deletePurchase);
-
-    // Nueva compra desde sidebar
-    document.getElementById('btn-new-purchase')?.addEventListener('click', () => {
-      document.getElementById('new-dropdown-menu').style.display = 'none';
-      openPurchaseModal();
-    });
-
-    // Nueva compra desde modal-task
-    document.getElementById('btn-new-purchase-from-task')?.addEventListener('click', e => {
-      const taskId = e.currentTarget.dataset.taskId;
-      openPurchaseModal(null, taskId ? parseInt(taskId) : null);
-    });
-
-    // Toggle de vista
-    document.getElementById('btn-view-tasks')?.addEventListener('click',     () => setView('tasks'));
-    document.getElementById('btn-view-purchases')?.addEventListener('click', () => setView('purchases'));
-    document.getElementById('btn-view-combined')?.addEventListener('click',  () => setView('combined'));
-
-    // Color toggle
-    document.getElementById('btn-toggle-color')?.addEventListener('click', () => {
-      if (typeof GanttApp.getColorMode !== 'function') return;
-      const current = GanttApp.getColorMode();
-      const next = current === 'project' ? 'responsable' : 'project';
-      GanttApp.setColorMode(next);
-      const btn = document.getElementById('btn-toggle-color');
-      if (btn) btn.innerHTML = next === 'project' ? '🎨 Proyecto' : '👤 Responsable';
-      
-      if (_currentView === 'combined') {
-        refreshCombinedView();
-      } else if (_currentView === 'purchases') {
-        GanttApp.loadPurchasesView(_allPurchases, _allTasks);
-      } else {
-        if (GanttApp.isAllProjects()) {
-           GanttApp.loadAllProjects();
-        } else {
-           const pid = GanttApp.getCurrentProjectId();
-           if (pid) GanttApp.loadProject(pid, null); // Color null uses default logic
-        }
-      }
-    });
-
-    // Gráficos
-    document.getElementById('btn-open-charts')?.addEventListener('click', openChartsModal);
-  }
-
-  return { init, openPurchaseModal, renderTaskPurchases, updatePurchaseKPIs, setView, getResponsableName };
-})();
-window.PurchaseModule = PurchaseModule;
 
 // ── Bootstrap ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1999,24 +1818,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   GanttApp.init();
   await UI.init();
-
-  // Inicializar modulo de compras
-  await PurchaseModule.init(
-    UI.getAllTasks(),
-    UI.getResponsables(),
-    UI.getSubresponsables(),
-    UI.getProjects()
-  );
-
-  // Interceptar la carga de proyectos para actualizar las tareas del módulo de compras
-  const origSelectProject = UI.selectProject;
-  UI.selectProject = async (id, color) => {
-    await origSelectProject(id, color);
-    PurchaseModule.init(
-      UI.getAllTasks(),
-      UI.getResponsables(),
-      UI.getSubresponsables(),
-      UI.getProjects()
-    );
-  };
 });

@@ -49,6 +49,140 @@
       border-color: #3a3a55 !important;
       color: #e2e5f0 !important;
     }
+
+    /* ══ Gantt Multi-layer Styles ══ */
+    .layer-baseline {
+      background-color: rgba(148, 163, 184, 0.1) !important;
+      border: 1px dashed rgba(148, 163, 184, 0.2) !important;
+      border-radius: 4px;
+      z-index: 1;
+    }
+    .layer-proyectada {
+      background-color: rgba(99, 102, 241, 0.2) !important;
+      border: 1px solid rgba(99, 102, 241, 0.4) !important;
+      border-radius: 4px;
+      z-index: 2;
+    }
+    .layer-real {
+      background-color: var(--green) !important;
+      opacity: 0.6;
+      border-radius: 4px;
+      z-index: 3;
+    }
+
+    /* ══ Purchase Bar Segments ══ */
+    .purchase-segment {
+      position: absolute;
+      height: 100%;
+      top: 0;
+      border-right: 1px solid rgba(255,255,255,0.1);
+    }
+    .purchase-req-arr { background: rgba(34, 211, 238, 0.3); } /* Solicitud -> Arribo */
+    .purchase-oc-comp { background: rgba(245, 158, 11, 0.3); } /* OC -> Comprometida */
+    .purchase-delivered { 
+      background: var(--green) !important; 
+      box-shadow: 0 0 8px var(--green);
+      opacity: 0.5;
+    }
+
+    .purchase-milestone-marker {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: var(--green);
+      border-radius: 50%;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 2px solid white;
+      z-index: 10;
+    }
+
+    .gantt_task_line.es-compra {
+      background: rgba(34, 211, 238, 0.05) !important;
+      border: 1px solid rgba(34, 211, 238, 0.3) !important;
+    }
+
+    /* ══ Task Layers (Baseline & Real) ══ */
+    .gantt_task_line {
+      overflow: visible !important; 
+    }
+    
+    /* Clase para ocultar contenedor en compras */
+    .gantt_task_line.purchase-task {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .layer-baseline, .layer-real, .purchase-segment, .purchase-milestone-marker {
+      z-index: 1 !important; 
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .layer-baseline { background: rgba(0,0,0,0.15); }
+    .layer-real { background: var(--indigo, #6366f1); opacity: 0.6; }
+
+    /* Asegurar visibilidad del texto sobre las capas */
+    .task-bar-label, .task-bar-resp {
+      position: relative;
+      z-index: 2 !important;
+      text-shadow: 0px 1px 2px rgba(0,0,0,0.8);
+    }
+
+    /* Aumentar contraste de la barra de progreso interno (Avance) */
+    .gantt_task_progress {
+      background-color: rgba(0, 0, 0, 0.45) !important; 
+      border-top: 2px solid rgba(255, 255, 255, 0.6) !important; 
+      border-radius: 4px;
+      backdrop-filter: brightness(0.8);
+    }
+
+    .purchase-req-arr {
+      background-color: rgba(14, 165, 233, 0.4) !important;
+      border: 1px solid rgba(14, 165, 233, 0.8);
+      border-radius: 4px;
+    }
+
+    .purchase-oc-comp {
+      background-color: rgba(245, 158, 11, 0.5) !important;
+      border: 1px dashed rgba(245, 158, 11, 0.9);
+      border-radius: 4px;
+    }
+
+    .purchase-milestone-marker.purchase-delivered {
+      background-color: #22c55e !important;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+      width: 12px !important;
+      height: 12px !important;
+      transform: translateY(-50%);
+    }
+
+    .task-timeline-divider {
+      position: absolute;
+      top: -2px; /* Sobresale un poco por arriba */
+      bottom: -2px; /* Sobresale un poco por abajo */
+      width: 2px;
+      z-index: 3 !important;
+      box-shadow: 0 0 3px rgba(0,0,0,0.5);
+      cursor: help;
+    }
+
+    /* Ocultar las capas apiladas viejas para tareas normales si el usuario prefiere solo las divisorias */
+    .gantt_task_line:not(.purchase-task) .layer-baseline,
+    .gantt_task_line:not(.purchase-task) .layer-real {
+      display: none !important; 
+    }
+
+    /* ══ Auto-Delayed Task Style ══ */
+    .auto-delayed-task .gantt_task_content {
+      background-image: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.1) 10px, transparent 10px, transparent 20px) !important;
+      border: 1px solid var(--red) !important;
+      box-shadow: 0 0 5px rgba(239, 68, 68, 0.4);
+    }
+
+
     .gantt_row:hover, .gantt_row.gantt_row_task:hover {
       background: #252538 !important;
     }
@@ -85,10 +219,49 @@
       background: rgba(0,0,0,0.25) !important;
     }
 
-    /* Barra de hoy */
+    /* Marcador HOY (Cian Brillante) */
     .today-marker {
-      background: #22d3ee !important;
-      opacity: 1;
+      background-color: rgba(6, 182, 212, 0.9) !important; 
+      box-shadow: 0 0 10px 2px rgba(6, 182, 212, 0.6) !important;
+      z-index: 5 !important;
+    }
+    .today-marker .gantt_marker_content {
+      background: #06b6d4 !important;
+      color: #000 !important;
+      font-weight: 800 !important;
+      border-radius: 4px;
+      padding: 2px 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
+
+    /* Marcador INICIO (Verde Brillante) */
+    .project-start-marker {
+      background-color: rgba(34, 197, 94, 0.9) !important;
+      box-shadow: 0 0 10px 2px rgba(34, 197, 94, 0.6) !important;
+      z-index: 5 !important;
+    }
+    .project-start-marker .gantt_marker_content {
+      background: #22c55e !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+      border-radius: 4px;
+      padding: 2px 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
+
+    /* Marcador FIN (Rojo Brillante) */
+    .project-end-marker {
+      background-color: rgba(239, 68, 68, 0.9) !important;
+      box-shadow: 0 0 10px 2px rgba(239, 68, 68, 0.6) !important;
+      z-index: 5 !important;
+    }
+    .project-end-marker .gantt_marker_content {
+      background: #ef4444 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+      border-radius: 4px;
+      padding: 2px 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
     }
 
     /* Líneas de dependencia */
@@ -241,9 +414,6 @@
             <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-project" style="justify-content:center;">
               ＋ Nuevo Proyecto
             </button>
-            <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-purchase" style="justify-content:center;">
-              🛒 Nueva Compra
-            </button>
           </div>
         </div>
       </div>
@@ -284,10 +454,9 @@
           <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-grid" title="Bascular Lista de Tareas" style="margin-left: 8px; border:1px solid var(--border-light);">≡ Tareas</button>
           <span class="project-badge" id="project-badge" style="display:none"></span>
           <!-- View Toggle -->
-          <div id="view-toggle-group" style="display:none; margin-left:12px; border:1px solid var(--border-light); border-radius:100px; overflow:hidden;">
-            <button class="btn btn-sm view-toggle-btn active" id="btn-view-tasks"    title="Solo Tareas"    style="border-radius:0; padding:4px 10px; font-size:11px;">📋 Tareas</button>
-            <button class="btn btn-sm view-toggle-btn"        id="btn-view-purchases" title="Solo Compras"  style="border-radius:0; padding:4px 10px; font-size:11px; border-left:1px solid var(--border-light);">🛒 Compras</button>
-            <button class="btn btn-sm view-toggle-btn"        id="btn-view-combined" title="Consolidado"   style="border-radius:0; padding:4px 10px; font-size:11px; border-left:1px solid var(--border-light);">🔀 Consolid.</button>
+          <div class="view-toggles" style="display:flex; gap:8px; margin-left:16px; border:1px solid #475569; border-radius:8px; padding:4px;">
+            <button id="btn-view-tasks" class="btn btn-sm btn-primary active">📝 Tareas</button>
+            <button id="btn-view-purchases" class="btn btn-sm btn-ghost">🛒 Sólo Compras</button>
           </div>
         </div>
         <div class="toolbar-right toolbar-actions" id="toolbar-actions" style="display:none">
@@ -411,6 +580,7 @@
             <div class="stat-value"><span id="stat-total-aplicado">$0</span> <span class="stat-pct" id="stat-aplicado-pct">0%</span></div>
           </div>
         </div>
+
         <div class="stat-card" id="kpi-compra-atraso" style="display:none">
           <div class="stat-icon" style="background:#ef444420">🚨</div>
           <div class="stat-info">
@@ -529,8 +699,12 @@
   <!-- ══════════════ MODAL: TAREA ══════════════ -->
   <div class="modal-overlay hidden" id="modal-task">
     <div class="modal-box">
-      <div class="modal-header">
+      <div class="modal-header" style="justify-content: space-between; align-items: center; display: flex;">
         <span class="modal-title" id="modal-task-title">Nueva Tarea</span>
+        <label class="radio-option" id="label-es-compra" style="font-weight:700; font-size:13px; color:var(--cyan); margin-left: auto; margin-right: 15px; cursor: pointer; padding: 4px 10px; border-radius: var(--radius); transition: all 0.2s;">
+          <input type="checkbox" id="field-es-compra">
+          <span>🛒 Es una Compra</span>
+        </label>
         <button class="modal-close" data-close-modal>×</button>
       </div>
       <div class="modal-body">
@@ -567,26 +741,53 @@
             </select>
           </div>
 
-          <!-- Fecha inicio -->
-          <div class="form-group">
-            <label class="form-label" for="field-fecha-inicio">Fecha de inicio *</label>
-            <input class="form-control" id="field-fecha-inicio" type="date">
-          </div>
-
-          <!-- Duración -->
-          <div class="form-group">
-            <label class="form-label" for="field-duracion">Duración (días) *</label>
-            <input class="form-control" id="field-duracion" type="number" min="1" value="1">
+          <!-- Fechas Grid: Baseline, Proyectado, Real -->
+          <div class="form-group col-span-2" id="group-tarea-fechas" style="background:var(--bg); border:1px solid var(--border-light); padding:10px; border-radius:var(--radius);">
+             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <!-- Columna 1 -->
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div>
+                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px">Inicio Baseline *</label>
+                    <input class="form-control" id="field-fecha-inicio" type="date">
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px; color:var(--text-dim)">Inicio Proyectado 🔒</label>
+                    <input class="form-control" id="field-fecha-inicio-proyectada" type="date" disabled style="background:#0000000a; border:1px dashed var(--border)">
+                  </div>
+                </div>
+                <!-- Columna 2 -->
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div>
+                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px">Duración (d) *</label>
+                    <input class="form-control" id="field-duracion" type="number" min="1" value="1">
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px; color:var(--text-dim)">Fin Proyectado 🔒</label>
+                    <input class="form-control" id="field-fecha-fin-proyectada" type="date" disabled style="background:#0000000a; border:1px dashed var(--border)">
+                  </div>
+                </div>
+                <!-- Columna 3 -->
+                <div style="display: flex; flex-direction: column; gap: 8px; border-left:1px solid var(--border-light); padding-left:10px;">
+                  <div>
+                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px; color:var(--indigo)">Real Iniciada</label>
+                    <input class="form-control" id="field-fecha-real-iniciada" type="date">
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px; color:var(--btn-green-bg)">Real Completada</label>
+                    <input class="form-control" id="field-fecha-completada" type="date">
+                  </div>
+                </div>
+             </div>
           </div>
 
           <!-- Costo Tarea -->
-          <div class="form-group col-span-2">
-            <label class="form-label" for="field-costo">Costo ($) *</label>
+          <div class="form-group col-span-2" id="group-tarea-costo">
+            <label class="form-label" for="field-costo">Costo General ($) *</label>
             <input class="form-control" id="field-costo" type="number" min="0" step="0.01" value="0">
           </div>
 
           <!-- Tipo días -->
-          <div class="form-group col-span-2">
+          <div class="form-group col-span-2" id="group-tarea-tipodias">
             <label class="form-label">Tipo de días</label>
             <div class="radio-group">
               <label class="radio-option">
@@ -625,7 +826,7 @@
           </div>
 
           <!-- Avance -->
-          <div class="form-group col-span-2">
+          <div class="form-group col-span-2" id="group-tarea-avance">
             <label class="form-label">Avance: <span id="label-avance">0%</span></label>
             <div class="progress-wrap">
               <input class="progress-slider" id="field-avance" type="range" min="0" max="100" step="1" value="0">
@@ -634,7 +835,7 @@
           </div>
 
           <!-- Recursos -->
-          <div class="form-group col-span-2">
+          <div class="form-group col-span-2" id="group-tarea-recursos">
             <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
               Recursos
               <button class="btn btn-ghost btn-sm" id="btn-add-recurso" title="Nuevo Recurso"
@@ -646,7 +847,7 @@
           </div>
 
           <!-- Dependencias -->
-          <div class="form-group col-span-2">
+          <div class="form-group col-span-2" id="group-tarea-dependencias">
             <label class="form-label">Dependencias (Finish-to-Start)</label>
             <div id="deps-wrap" style="display:flex;flex-direction:column;gap:4px;max-height:130px;overflow-y:auto;
                padding:8px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius)">
@@ -657,10 +858,47 @@
           <div class="form-group col-span-2" id="group-task-purchases" style="display:none;">
             <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
               Compras Asociadas
-              <button class="btn btn-ghost btn-sm btn-pill" id="btn-new-purchase-from-task" style="font-size:10px; border:1px solid var(--border-light); color:var(--cyan);">🛒 ＋ Nueva Compra</button>
             </label>
-            <div id="task-purchases-list" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;padding:8px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius);">
+            <div id="task-purchases-list" style="display:none;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;padding:8px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius);">
               <span style="color:var(--text-dim);font-size:11px">Sin compras asociadas.</span>
+            </div>
+          </div>
+
+          <div id="section-compra-fields" class="form-grid col-span-2" style="display:none; background:rgba(34, 211, 238, 0.05); border:1px solid rgba(34, 211, 238, 0.2); border-radius:var(--radius); padding:12px; margin-top:5px">
+            <!-- Row 1 -->
+            <div class="form-group">
+              <label class="form-label" style="color:var(--cyan)">Cantidad *</label>
+              <input class="form-control" id="field-compra-cantidad" type="number" min="0.01" step="0.01" value="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="color:var(--cyan)">Valor Unitario ($) *</label>
+              <input class="form-control" id="field-compra-valor" type="number" step="0.01" value="0">
+            </div>
+
+            <!-- Row 2 -->
+            <div class="form-group">
+              <label class="form-label" style="color:var(--text)">Fecha Solicitud *</label>
+              <input class="form-control" id="field-compra-f-sol" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="color:var(--text)">Arribo Necesario *</label>
+              <input class="form-control" id="field-compra-f-arr" type="date">
+            </div>
+
+            <!-- Row 3 -->
+            <div class="form-group">
+              <label class="form-label" style="color:var(--text)">Fecha OC Emitida</label>
+              <input class="form-control" id="field-compra-f-oc" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="color:var(--text)">Fecha Comprometida (Si hay OC) *</label>
+              <input class="form-control" id="field-compra-f-comp" type="date">
+            </div>
+
+            <!-- Row 4 -->
+            <div class="form-group col-span-2">
+              <label class="form-label" style="color:var(--btn-green-bg)">Fecha Entregado Real</label>
+              <input class="form-control" id="field-compra-f-ent" type="date">
             </div>
           </div>
 
@@ -709,6 +947,96 @@
           Eliminar Proyecto</button>
         <button class="btn btn-ghost" data-close-modal>Cancelar</button>
         <button class="btn btn-primary" id="btn-save-project">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ MODAL: COMPRA (INDIVIDUAL) ══════════════ -->
+  <div class="modal-overlay hidden" id="modal-purchase" style="z-index:120">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <span class="modal-title">Editar Compra</span>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-purchase">
+          <input type="hidden" id="field-pur-id">
+          <div class="form-grid">
+            <div class="form-group col-span-2">
+              <label class="form-label" for="field-pur-producto">Producto / Servicio *</label>
+              <input class="form-control" id="field-pur-producto" type="text" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label" for="field-pur-proyecto">Proyecto</label>
+              <select class="form-control" id="field-pur-proyecto">
+                <option value="">Seleccionar proyecto...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="field-pur-tarea">Tarea Asociada</label>
+              <select class="form-control" id="field-pur-tarea">
+                <option value="">-- Sin tarea (Compra de obra) --</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="field-pur-responsable">Responsable</label>
+              <select class="form-control" id="field-pur-responsable"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="field-pur-solicitante">Solicitante</label>
+              <select class="form-control" id="field-pur-solicitante"></select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="field-pur-estado">Estado</label>
+              <select class="form-control" id="field-pur-estado">
+                <option value="solicitada">Solicitada</option>
+                <option value="presupuestada">Presupuestada</option>
+                <option value="oc_emitida">OC Emitida</option>
+                <option value="entregado">Entregado</option>
+              </select>
+            </div>
+            <div class="form-group" id="group-pur-entregado" style="display:none">
+               <label class="form-label">Fecha Entrega Real</label>
+               <input class="form-control" id="field-pur-f-entregado" type="date">
+            </div>
+
+            <div class="form-divider col-span-2">Fechas y Plazos</div>
+            <div class="form-group">
+              <label class="form-label">Fecha Solicitud</label>
+              <input class="form-control" id="field-pur-f-solicitud" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Arribo Necesario (obra)</label>
+              <input class="form-control" id="field-pur-f-arribo-nec" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fecha OC Emitida</label>
+              <input class="form-control" id="field-pur-f-oc" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fecha Comprometida (proveedor)</label>
+              <input class="form-control" id="field-pur-f-comprometida" type="date">
+            </div>
+
+            <div class="form-divider col-span-2">Costos</div>
+            <div class="form-group">
+              <label class="form-label">Cantidad</label>
+              <input class="form-control" id="field-pur-cantidad" type="number" step="0.01" value="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Valor Unitario ($)</label>
+              <input class="form-control" id="field-pur-valor" type="number" step="0.01" value="0">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btn-delete-purchase" style="margin-right:auto">🗑 Eliminar</button>
+        <button class="btn btn-ghost" data-close-modal>Cancelar</button>
+        <button class="btn btn-primary" id="btn-save-purchase">Guardar Cambios</button>
       </div>
     </div>
   </div>
@@ -986,135 +1314,6 @@
     </div>
   </div>
 
-
-
-  <!-- ══════════════ MODAL: COMPRA ══════════════ -->
-  <div class="modal-overlay hidden" id="modal-purchase" style="z-index:106">
-    <div class="modal-box modal-lg" style="max-width:780px">
-      <div class="modal-header">
-        <span class="modal-title" id="modal-purchase-title">Nueva Compra</span>
-        <button class="modal-close" data-close-modal>×</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-grid">
-
-          <!-- Producto -->
-          <div class="form-group col-span-2">
-            <label class="form-label" for="field-pur-producto">Producto *</label>
-            <input class="form-control" id="field-pur-producto" type="text" placeholder="Ej: Cable 240mm², Contactor 160A…">
-          </div>
-
-          <!-- Descripción -->
-          <div class="form-group col-span-2">
-            <label class="form-label" for="field-pur-desc">Descripción</label>
-            <textarea class="form-control" id="field-pur-desc" rows="2" placeholder="Especificaciones, marca, modelo…"></textarea>
-          </div>
-
-          <!-- Proyecto (para filtrar tareas) -->
-          <div class="form-group">
-            <label class="form-label" for="field-pur-proyecto">Proyecto</label>
-            <select class="form-control" id="field-pur-proyecto">
-              <option value="">-- Seleccionar Proyecto --</option>
-            </select>
-          </div>
-
-          <!-- Tarea asociada -->
-          <div class="form-group">
-            <label class="form-label" for="field-pur-tarea">Tarea / Subtarea asociada</label>
-            <select class="form-control" id="field-pur-tarea">
-              <option value="">-- Sin tarea asociada --</option>
-            </select>
-          </div>
-
-          <!-- Cantidad / Valor unitario / Total -->
-          <div class="form-group">
-            <label class="form-label" for="field-pur-cantidad">Cantidad</label>
-            <input class="form-control" id="field-pur-cantidad" type="number" min="1" value="1">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="field-pur-vunit">Valor Unitario ($)</label>
-            <input class="form-control" id="field-pur-vunit" type="number" min="0" step="0.01" value="0">
-          </div>
-          <div class="form-group col-span-2">
-            <label class="form-label">Valor Total (calculado)</label>
-            <input class="form-control" id="field-pur-vtotal" type="text" value="$0.00" readonly style="color:var(--cyan);font-weight:700;background:var(--bg)">
-          </div>
-
-          <!-- Solicitante / Responsable -->
-          <div class="form-group">
-            <label class="form-label" for="field-pur-solicitante">Solicitante</label>
-            <select class="form-control" id="field-pur-solicitante">
-              <option value="">-- Seleccionar --</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="field-pur-responsable">Responsable de Compra</label>
-            <select class="form-control" id="field-pur-responsable">
-              <option value="">-- Seleccionar --</option>
-            </select>
-          </div>
-
-          <!-- Estado (custom pill-dropdown) -->
-          <div class="form-group col-span-2">
-            <label class="form-label">Estado</label>
-            <div class="filter-custom-select" id="custom-pur-estado-wrapper" style="position:relative;">
-              <input type="hidden" id="field-pur-estado" value="solicitada">
-              <button class="filter-select form-control" id="btn-pur-estado" style="display:flex;align-items:center;justify-content:space-between;text-align:left;">
-                <span id="pur-estado-label"><span class="badge badge-pur-sol">Solicitada</span></span>
-                <span style="color:var(--text-dim)">▼</span>
-              </button>
-              <div id="menu-pur-estado" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--border-light);border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:600;padding:6px;flex-direction:column;gap:2px;">
-                <div class="pur-estado-item" data-value="solicitada"           style="padding:4px 8px;cursor:pointer;border-radius:4px"><span class="badge badge-pur-sol">Solicitada</span></div>
-                <div class="pur-estado-item" data-value="solicitando presupuesto" style="padding:4px 8px;cursor:pointer;border-radius:4px"><span class="badge badge-pur-pres">Solicitando Presupuesto</span></div>
-                <div class="pur-estado-item" data-value="presupuesto recibido"  style="padding:4px 8px;cursor:pointer;border-radius:4px"><span class="badge badge-pur-prec">Presupuesto Recibido</span></div>
-                <div class="pur-estado-item" data-value="OC emitida"            style="padding:4px 8px;cursor:pointer;border-radius:4px"><span class="badge badge-pur-oc">OC Emitida</span></div>
-                <div class="pur-estado-item" data-value="fecha comprometida"    style="padding:4px 8px;cursor:pointer;border-radius:4px"><span class="badge badge-pur-comp">Fecha Comprometida</span></div>
-                <div class="pur-estado-item" data-value="entregado"             style="padding:4px 8px;cursor:pointer;border-radius:4px"><span class="badge badge-pur-ent">Entregado</span></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Días de arribo -->
-          <div class="form-group">
-            <label class="form-label" for="field-pur-dias">Días de Arribo (Lead Time)</label>
-            <input class="form-control" id="field-pur-dias" type="number" min="0" value="0" placeholder="0">
-          </div>
-
-          <!-- Fecha Arribo Necesaria -->
-          <div class="form-group">
-            <label class="form-label" for="field-pur-arribo-nec">Fecha Arribo Necesaria</label>
-            <input class="form-control" id="field-pur-arribo-nec" type="date">
-          </div>
-
-          <!-- Fecha Arribo Estimada (readonly, calculada) -->
-          <div class="form-group col-span-2">
-            <label class="form-label">Fecha Arribo Estimada <span style="font-size:10px;color:var(--text-dim)">(OC emitida + días arribo)</span></label>
-            <input class="form-control" id="field-pur-arribo-est" type="text" readonly placeholder="Se calcula automáticamente" style="color:var(--cyan);background:var(--bg)">
-          </div>
-
-          <!-- Timestamps de estado (panel colapsado) -->
-          <div class="form-group col-span-2">
-            <details style="background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius);padding:10px 12px;">
-              <summary style="font-size:11px;font-weight:600;color:var(--text-muted);cursor:pointer;">📅 Historial de Fechas por Estado</summary>
-              <div class="form-grid" style="margin-top:10px;gap:8px;">
-                <div class="form-group"><label class="form-label" style="font-size:10px">Fecha Solicitud</label><input class="form-control" id="field-pur-f-sol"  type="date"></div>
-                <div class="form-group"><label class="form-label" style="font-size:10px">Pres. Solicitado</label><input class="form-control" id="field-pur-f-psol" type="date"></div>
-                <div class="form-group"><label class="form-label" style="font-size:10px">Pres. Recibido</label><input class="form-control" id="field-pur-f-prec"  type="date"></div>
-                <div class="form-group"><label class="form-label" style="font-size:10px">OC Emitida</label><input class="form-control" id="field-pur-f-oc"   type="date"></div>
-                <div class="form-group"><label class="form-label" style="font-size:10px">Fecha Comprometida</label><input class="form-control" id="field-pur-f-comp" type="date"></div>
-                <div class="form-group"><label class="form-label" style="font-size:10px">Fecha Entregado</label><input class="form-control" id="field-pur-f-ent"  type="date"></div>
-              </div>
-            </details>
-          </div>
-
-          <!-- Notas -->
-          <div class="form-group col-span-2">
-            <label class="form-label" for="field-pur-notas">Notas</label>
-            <textarea class="form-control" id="field-pur-notas" rows="2" placeholder="Observaciones, condiciones, proveedor…"></textarea>
-          </div>
-
-          <!-- Links facturas -->
-          <div class="form-group col-span-2">
             <label class="form-label" for="field-pur-links">Links de Facturas / Documentos <span style="font-size:10px;color:var(--text-dim)">(uno por línea)</span></label>
             <textarea class="form-control" id="field-pur-links" rows="2" placeholder="https://…"></textarea>
           </div>
@@ -1160,11 +1359,11 @@
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="/js/auth.js?v=4"></script>
-  <script src="/js/api.js?v=4"></script>
-  <script src="/js/gantt-init.js?v=4"></script>
-  <script src="/js/exports.js?v=4"></script>
-  <script src="/js/ui.js?v=4"></script>
+  <script src="/js/auth.js?v=8"></script>
+  <script src="/js/api.js?v=8"></script>
+  <script src="/js/gantt-init.js?v=8"></script>
+  <script src="/js/exports.js?v=8"></script>
+  <script src="/js/ui.js?v=8"></script>
 </body>
 
 </html>

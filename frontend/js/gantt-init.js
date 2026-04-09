@@ -27,6 +27,51 @@ window.GanttApp = (() => {
     return _responsableColors[key];
   }
 
+  function toggleColorMode() {
+    _colorMode = (_colorMode === 'project') ? 'responsable' : 'project';
+    
+    // Actualizar visual del botón
+    const btn = document.getElementById('btn-toggle-color');
+    if (btn) {
+      if (_colorMode === 'responsable') {
+        btn.innerHTML = '🎨 Responsables';
+        btn.style.backgroundColor = 'var(--indigo)';
+        btn.style.color = '#ffffff';
+        btn.style.borderColor = 'var(--indigo)';
+      } else {
+        btn.innerHTML = '🎨 Proyecto';
+        btn.style.backgroundColor = '#ffffff';
+        btn.style.color = '#000000';
+        btn.style.borderColor = '#d1d5db';
+      }
+    }
+
+    // Refrescar colores de todas las tareas en el gantt
+    gantt.eachTask(task => {
+      let finalColor;
+      if (_colorMode === 'responsable') {
+        finalColor = getResponsableColor(task.responsable);
+      } else {
+        // En modo proyecto, recuperamos el color base
+        if (task._es_compra) {
+          // Si es compra, chequeamos si estamos en vista combinada o solo compras
+          const isCombined = document.getElementById('btn-view-combined')?.classList.contains('active');
+          if (isCombined) {
+            finalColor = '#ffffff';
+          } else {
+            finalColor = _projectsMap[task._raw?.id_proyecto]?.color || '#4f8ef7';
+          }
+        } else {
+          finalColor = _projectsMap[task._raw?.id_proyecto]?.color || currentProjectColor;
+        }
+      }
+      task.color = finalColor;
+      task.textColor = (finalColor === '#ffffff' || finalColor === '#fff') ? '#0f172a' : undefined;
+      gantt.updateTask(task.id);
+    });
+    gantt.render();
+  }
+
   /* ── Scales ─────────────────────────────────────────────── */
   const SCALES = {
     day: [
@@ -141,19 +186,21 @@ window.GanttApp = (() => {
       {
         name: 'notes_col', label: 'Notas', width: 45, align: 'center',
         template: t => {
-          if (t.note_count > 0) {
-            return `
-            <div style="display:flex; align-items:center; justify-content:center; height:100%;">
-              <div class="note-col-trigger" data-id="${t.id}" style="display:flex; justify-content:center; align-items:center; width:28px; height:28px; background:var(--indigo); color:#fff; border-radius:8px; cursor:pointer;" title="Notas">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                </svg>
-              </div>
-            </div>
-            `;
+          let html = '';
+          // Indicador de Compra
+          if (t._es_compra) {
+            html += `<div style="display:inline-flex; justify-content:center; align-items:center; width:22px; height:22px; background:var(--cyan, #06b6d4); color:#000; font-weight:900; font-size:12px; border-radius:4px; margin-right:4px;" title="Es una Compra">C</div>`;
           }
-          return '';
+          // Ícono de Notas (si tiene)
+          if (t.note_count > 0) {
+            html += `<div class="note-col-trigger" data-id="${t.id}" style="display:inline-flex; justify-content:center; align-items:center; width:22px; height:22px; background:var(--indigo, #6366f1); color:#fff; border-radius:4px; cursor:pointer;" title="Ver Notas">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                      </svg>
+                    </div>`;
+          }
+          return `<div style="display:flex; align-items:center; justify-content:center; height:100%;">${html}</div>`;
         }
       }
     ];
@@ -163,21 +210,101 @@ window.GanttApp = (() => {
       d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : '';
 
     gantt.templates.task_class = (s, e, t) => {
-      const pct = Math.round((t.progress || 0) * 100);
-      if (pct >= 100) return 'task-done';
-      if (pct > 0)    return 'task-progress';
-      return 'task-pending';
+      let baseClass = t._es_compra ? 'purchase-task' : '';
+      if (!t._es_compra) {
+        const pct = Math.round((t.progress || 0) * 100);
+        if (pct >= 100) baseClass = 'task-done';
+        else if (pct > 0) baseClass = 'task-progress';
+        else baseClass = 'task-pending';
+      }
+      if (t._auto_retrasada) baseClass += ' auto-delayed-task';
+      return baseClass;
     };
 
-    gantt.templates.task_text = (s, e, t) => {
+    gantt.templates.task_text = (start, end, task) => {
       const respName = (window.PurchaseModule && window.PurchaseModule.getResponsableName) 
-                       ? window.PurchaseModule.getResponsableName(t.responsable) 
-                       : t.responsable;
-      const initials = (respName || '')
-        .split('@')[0].substring(0, 2).toUpperCase() || '??';
-      const tc = t.textColor ? `color:${t.textColor} !important;` : '';
-      return `<span class="task-bar-label" style="${tc}">${t.text || ''}</span>
-              <span class="task-bar-resp" title="${respName || ''}" style="${tc}">${initials}</span>`;
+        ? window.PurchaseModule.getResponsableName(task.responsable) : task.responsable;
+      const initials = (respName || '').split('@')[0].substring(0, 2).toUpperCase() || '??';
+      const tc = task.textColor ? `color:${task.textColor} !important;` : '';
+      
+      // 1. Texto base original
+      let html = `<span class="task-bar-label" style="${tc}">${task.text || ''}</span>
+                  <span class="task-bar-resp" title="${respName || ''}" style="${tc}">${initials}</span>`;
+                  
+      // 2. Función helper para dibujar segmentos
+      const drawAbsoluteSegment = (sDateStr, eDateStr, className, topOffset, height, isPoint = false) => {
+        if (!sDateStr) return '';
+        const sDate = gantt.date.parseDate(sDateStr, "xml_date");
+        if (!sDate) return '';
+        let width = isPoint ? 10 : 0;
+        let left = gantt.posFromDate(sDate) - gantt.posFromDate(task.start_date);
+        
+        if (!isPoint && eDateStr) {
+          const eDate = gantt.date.parseDate(eDateStr, "xml_date");
+          if (eDate) {
+            eDate.setDate(eDate.getDate() + 1); // Exclusivo
+            width = gantt.posFromDate(eDate) - gantt.posFromDate(sDate);
+          }
+        }
+        if (width <= 0 && !isPoint) return ''; // No dibujar si es negativo o cero
+        if (width < 5 && !isPoint)  width = 5;  // Seguridad de visibilidad
+        
+        // Corrección visual si isPoint
+        if (isPoint) left -= 5; 
+        
+        return `<div class="${className}" style="position:absolute; left:${left}px; top:${topOffset}px; width:${width}px; height:${height}px;"></div>`;
+      };
+
+      // 3. Capa Baseline
+      if (task._f_inicio_base && task._f_fin_base) {
+        html += drawAbsoluteSegment(task._f_inicio_base, task._f_fin_base, 'layer-baseline', -2, 24);
+      }
+
+      // 4. Capa Real
+      if (task._f_real_ini) {
+        // Si no terminó, dibujar hasta hoy
+        const endRealStr = task._f_real_fin || gantt.date.date_to_str("%Y-%m-%d")(new Date());
+        html += drawAbsoluteSegment(task._f_real_ini, endRealStr, 'layer-real', 18, 6);
+      }
+
+      // 5. Segmentos de Compra
+      if (task._es_compra && task._compra) {
+        const c = task._compra;
+        html += drawAbsoluteSegment(c.f_solicitud, c.f_arribo_nec, 'purchase-segment purchase-req-arr', 0, 20);
+        html += drawAbsoluteSegment(c.f_oc, c.f_comp, 'purchase-segment purchase-oc-comp', 0, 20);
+        if (c.f_ent) {
+          html += drawAbsoluteSegment(c.f_ent, null, 'purchase-milestone-marker purchase-delivered', 6, 8, true);
+        }
+      }
+
+      // 6. Líneas divisorias de ciclo de vida (Solo para tareas de obra)
+      const drawVerticalDivider = (dateStr, color, label) => {
+        if (!dateStr) return '';
+        const d = gantt.date.parseDate(dateStr, "xml_date");
+        if (!d) return '';
+        const left = gantt.posFromDate(d) - gantt.posFromDate(task.start_date);
+        return `<div class="task-timeline-divider" style="left:${left}px; background-color:${color};" title="${label}: ${dateStr}"></div>`;
+      };
+
+      if (!task._es_compra) {
+        if (task._f_inicio_base && task._f_inicio_base !== task._f_inicio_proy) {
+          html += drawVerticalDivider(task._f_inicio_base, 'rgba(255,255,255,0.6)', 'Inicio Base');
+        }
+        if (task._f_inicio_proy) {
+          html += drawVerticalDivider(task._f_inicio_proy, 'rgba(14, 165, 233, 0.8)', 'Inicio Proyectado');
+        }
+        if (task._f_real_ini) {
+          html += drawVerticalDivider(task._f_real_ini, 'rgba(34, 197, 94, 0.9)', 'Real Iniciada');
+        }
+        if (task._f_fin_proy) {
+          html += drawVerticalDivider(task._f_fin_proy, 'rgba(245, 158, 11, 0.8)', 'Fin Proyectada');
+        }
+        if (task._f_real_fin) {
+          html += drawVerticalDivider(task._f_real_fin, 'rgba(34, 197, 94, 1)', 'Real Completada');
+        }
+      }
+
+      return html;
     };
 
     gantt.templates.tooltip_text = (s, e, t) => {
@@ -208,11 +335,6 @@ window.GanttApp = (() => {
         if (window.UI) UI.openTaskModal(gantt.getTask(id));
       }
     };
-
-    gantt.attachEvent('onTaskCreated', (task) => {
-      UI.openTaskModal(null);
-      return false; // bloquea la creación nativa de dhtmlx
-    });
 
     /* ── Events ───────────────────────────────────────────── */
     gantt.attachEvent('onAfterTaskDrag', (id, mode, e) => {
@@ -323,14 +445,26 @@ window.GanttApp = (() => {
   function estadoBadge(t) {
     let estado = t._estado || 'No comenzada';
     const p = Math.round((t.progress || 0) * 100);
+    const today = new Date(); today.setHours(0,0,0,0);
 
-    if (estado !== 'Finalizada') {
-      const today = new Date(); today.setHours(0,0,0,0);
+    if (t._es_compra && t._compra) {
+      // Lógica exclusiva para compras
+      const arriboNec = t._compra.f_arribo_nec ? new Date(t._compra.f_arribo_nec + 'T00:00:00') : null;
+      const entregado = t._compra.f_ent;
+
+      if (!entregado && arriboNec && arriboNec < today) {
+        estado = 'Retrasada';
+      } else if (entregado) {
+        estado = 'Finalizada';
+      }
+    } else {
+      // Lógica normal para tareas de obra
       const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
       
-      if (tStart <= today && p === 0) {
+      if (tStart <= today && p === 0 && estado !== 'Finalizada') {
         estado = 'Retrasada';
-      } else if (p < 100) {
+      } else if (p < 100 && estado !== 'Finalizada') {
+        // Bloqueadas
         if (t.$target && t.$target.length > 0) {
           for (let linkId of t.$target) {
             if (window.gantt && gantt.isLinkExists && gantt.isLinkExists(linkId)) {
@@ -366,34 +500,49 @@ window.GanttApp = (() => {
     if (typeof _colorMode !== 'undefined' && _colorMode === 'responsable') {
       finalColor = getResponsableColor(t.responsable);
     }
-    const startStr = t.dependencias && t.fecha_inicio_proyectada
-      ? t.fecha_inicio_proyectada
-      : t.fecha_inicio;
+    
+    // El Gantt visual principal se basa en la fecha proyectada (si existe) 
+    // o en la fecha de inicio baseline.
+    let startStr = t.fecha_inicio_proyectada || t.fecha_inicio;
+    let endStr   = undefined;
+    const finRef = t.fecha_fin_proyectada || t.fecha_fin;
+
+    if (t.es_compra === 1) {
+      // Para compras, el contenedor visual debe abarcar desde la solicitud hasta el último hito
+      startStr = t.fecha_solicitud || startStr;
+      const hitos = [
+        t.fecha_arribo_necesaria, 
+        t.fecha_comprometida, 
+        t.fecha_entregado
+      ].filter(Boolean);
       
-    let endStr = undefined;
-    if (t.fecha_fin) {
-      // Para que el Gantt dibuje visualmente hasta el día correcto,
-      // end_date debe ser el día posterior a fecha_fin (es exclusivo).
-      const end = new Date(t.fecha_fin + 'T00:00:00');
+      if (hitos.length > 0) {
+        const maxHito = new Date(Math.max(...hitos.map(h => new Date(h + 'T00:00:00'))));
+        maxHito.setDate(maxHito.getDate() + 1);
+        endStr = gantt.date.date_to_str('%Y-%m-%d')(maxHito);
+      }
+    }
+
+    if (!endStr && finRef) {
+      const end = new Date(finRef + 'T00:00:00');
       if (!isNaN(end.getTime())) {
         end.setDate(end.getDate() + 1);
         endStr = gantt.date.date_to_str('%Y-%m-%d')(end);
       }
     }
 
-    // Resolve project info
     const projInfo = _projectsMap[t.id_proyecto] || {};
 
     return {
       id:           t.id_tarea,
       parent:       t.id_parent || 0,
-      text:         t.descripcion || "Tarea sin nombre", // Ocultar códigos T00x del Gantt
-      start_date:   startStr || t.fecha_inicio,
+      text:         t.descripcion || "Tarea sin nombre",
+      start_date:   startStr,
       end_date:     endStr,
-      duration:     endStr ? undefined : (parseInt(t.duracion_dias) || 1),
+      duration:     endStr ? undefined : (t.es_compra ? 3 : (parseInt(t.duracion_dias) || 1)),
       progress:     parseFloat(t.avance || 0) / 100,
-      color:        finalColor,
-      textColor:    finalColor === '#ffffff' ? '#0f172a' : undefined,
+      color:        t.es_compra ? 'rgba(34, 211, 238, 0.1)' : finalColor,
+      textColor:    t.es_compra ? 'var(--cyan)' : (finalColor === '#ffffff' ? '#0f172a' : undefined),
       _tarea_cod:   t.tarea,
       _estado:      t.estado,
       _tipo_dias:   t.tipo_dias,
@@ -401,10 +550,27 @@ window.GanttApp = (() => {
       _costo:       parseFloat(t.costo_tarea) || 0,
       responsable:  (t.id_parent && t.subresponsable_nombre) ? t.subresponsable_nombre : (t.responsable || ''),
       note_count:   t.note_count || 0,
-      // project info for exports
       _projectName: projInfo.nombre || '',
       _projectCode: projInfo.codigo || '',
-      // DB raw
+      _es_compra:   t.es_compra || 0,
+      // Fechas para Multi-Capa
+      _f_inicio_base: t.fecha_inicio,
+      _f_fin_base:    t.fecha_fin,
+      _f_inicio_proy: t.fecha_inicio_proyectada,
+      _f_fin_proy:    t.fecha_fin_proyectada,
+      _f_real_ini:    t.fecha_real_iniciada,
+      _f_real_fin:    t.fecha_completada,
+      _auto_retrasada: t.auto_retrasada || 0,
+      // Datos extra de compra (inyectados por Left Join en el backend)
+      _compra: t.es_compra ? {
+        cantidad: t.cantidad,
+        valor: t.valor_unitario,
+        f_solicitud: t.fecha_solicitud,
+        f_arribo_nec: t.fecha_arribo_necesaria,
+        f_oc: t.fecha_oc_emitida,
+        f_comp: t.fecha_comprometida,
+        f_ent: t.fecha_entregado
+      } : null,
       _raw: t
     };
   }
@@ -430,33 +596,85 @@ window.GanttApp = (() => {
     _ignoreUpdate = true;
     updatedTasks.forEach(t => {
       if (!gantt.isTaskExists(t.id_tarea)) return;
-      // Si el usuario acabó de arrastrar esta tarea, no pisar su posición
-      // (sólo actualizamos las tareas dependientes propagadas)
-      if (skipId !== null && skipId !== undefined && t.id_tarea == skipId) {
-        // Sólo actualizamos metadatos, la posición ya la tiene el gantt correcta
-        const gt = gantt.getTask(t.id_tarea);
-        gt._estado      = t.estado;
-        gt._tipo_dias   = t.tipo_dias;
-        gt._dependencias = t.dependencias || '';
-        gt._raw         = t;
-        gantt.updateTask(t.id_tarea);
-        return;
-      }
       const gt = gantt.getTask(t.id_tarea);
-      const start = t.dependencias && t.fecha_inicio_proyectada
-        ? t.fecha_inicio_proyectada
-        : t.fecha_inicio;
-      gt.start_date   = gantt.date.parseDate(start, 'xml_date');
-      gt.duration     = parseInt(t.duracion_dias) || 1;
+      
+      const start = t.fecha_inicio_proyectada || t.fecha_inicio;
+      const fin = t.fecha_fin_proyectada || t.fecha_fin;
+      
+      // Actualizar posición visual si no es la tarea que se está arrastrando
+      if (skipId != t.id_tarea) {
+        gt.start_date = gantt.date.parseDate(start, 'xml_date');
+        if (fin) {
+          const end = new Date(fin + 'T00:00:00');
+          end.setDate(end.getDate() + 1);
+          gt.end_date = end;
+        } else {
+          gt.duration = parseInt(t.duracion_dias) || 1;
+        }
+      }
+
       gt.progress     = parseFloat(t.avance || 0) / 100;
       gt._estado      = t.estado;
       gt._tipo_dias   = t.tipo_dias;
       gt._dependencias = t.dependencias || '';
-      gt._raw         = t;
+      gt._es_compra   = t.es_compra || 0;
+      
+      // Actualizar meta-fechas para capas
+      gt._f_inicio_base = t.fecha_inicio;
+      gt._f_fin_base    = t.fecha_fin;
+      gt._f_inicio_proy = t.fecha_inicio_proyectada;
+      gt._f_fin_proy    = t.fecha_fin_proyectada;
+      gt._f_real_ini    = t.fecha_real_iniciada;
+      gt._f_real_fin    = t.fecha_completada;
+      gt._auto_retrasada = t.auto_retrasada || 0;
+      
+      gt._raw = t;
       gantt.updateTask(t.id_tarea);
     });
     _ignoreUpdate = false;
     updateSummary();
+  }
+
+  /* ── purchase to gantt (va tabla purchases) ────────────────── */
+  function dbPurchaseToGantt(p, color) {
+    const startStr = p.fecha_solicitud || (p.fecha_creacion ? p.fecha_creacion.split('T')[0] : new Date().toISOString().split('T')[0]);
+    const endRaw   = p.fecha_arribo_estimada || p.fecha_arribo_necesaria;
+    let endStr;
+    if (endRaw) {
+      const e = new Date(endRaw + 'T00:00:00Z');
+      e.setUTCDate(e.getUTCDate() + 1);
+      endStr = e.toISOString().split('T')[0];
+    }
+
+    const respName = (window.UI && window.UI.getResponsableName) 
+                     ? window.UI.getResponsableName(p.id_responsable) 
+                     : (p.responsable_nombre || p.id_responsable || '');
+
+    return {
+      id:          `pur_${p.id_compra}`,
+      text:        p.producto,
+      start_date:  startStr,
+      end_date:    endStr,
+      duration:    endStr ? undefined : 3,
+      progress:    p.estado === 'entregado' ? 1 : 0,
+      color:       color || '#4f8ef7',
+      textColor:   (color === '#ffffff' || color === '#fff') ? '#0f172a' : '#ffffff',
+      _estado:     p.estado,
+      _es_compra:  1,
+      _purchase:   p,
+      _compra: {      
+        cantidad: p.cantidad,
+        valor: p.valor_unitario,
+        f_solicitud: p.fecha_solicitud,
+        f_arribo_nec: p.fecha_arribo_necesaria,
+        f_oc: p.fecha_oc_emitida,
+        f_comp: p.fecha_comprometida,
+        f_ent: p.fecha_entregado
+      },
+      responsable:  respName,
+      _projectName: _projectsMap[p.id_proyecto]?.nombre || '',
+      _raw: p
+    };
   }
     
     gantt.attachEvent("onTaskClick", function(id, e) {
@@ -471,173 +689,205 @@ window.GanttApp = (() => {
     });
 
     function updateSummary() {
-    try {
-      const tasks = gantt.getTaskByTime();
-      const ids = tasks.map(t => t.id);
-      let totT = 0, doneT = 0, progT = 0, pendT = 0;
-      let totS = 0, doneS = 0, progS = 0, pendS = 0;
-      let totalProgressT = 0, totalProgressS = 0;
-      let totalCosto = 0, aplicado = 0;
-      let minDate = null, maxDate = null;
-      let delayed = 0, blocked = 0;
-      const today = new Date(); today.setHours(0,0,0,0);
-      const upcomingMilestones = [];
+      try {
+        const tasks = gantt.getTaskByTime();
+        if (!tasks || tasks.length === 0) return null;
 
-      ids.forEach(id => {
-        const t = gantt.getTask(id);
-        const p = Math.round((t.progress || 0) * 100);
-        // Is subtask if it has a parent id != 0 that actually exists
-        const isSub = t.parent && String(t.parent) !== "0" && gantt.isTaskExists(t.parent);
+        let totT = 0, doneT = 0, progT = 0, pendT = 0;
+        let totS = 0, doneS = 0, progS = 0, pendS = 0;
+        let totalCosto = 0, aplicado = 0;
+        let minDate = null, maxDate = null;
+        let compraAtrasoProc = 0, compraAtrasoEnt = 0;
 
-        if (isSub) {
-          totS++;
-          totalProgressS += p;
-          if (p >= 100) doneS++;
-          else if (p > 0) progS++;
-          else pendS++;
-        } else {
-          totT++;
-          totalProgressT += p;
-          if (p >= 100) doneT++;
-          else if (p > 0) progT++;
-          else pendT++;
-        }
+        // Status Bar & EVM Variables
+        let totalProgress = 0, delayed = 0, blocked = 0;
+        const upcomingMilestones = [];
+        let totalPlannedWeighted = 0;
+        let totalRealWeighted = 0;
+        let maxBaseDateMs = 0;
+        let maxProyDateMs = 0;
 
-        const costo = parseFloat(t._raw?.costo_tarea || t._costo || 0);
-        totalCosto += costo;
-        if (t._estado === 'Finalizada' || p >= 100) {
-          aplicado += costo;
-        }
+        const today = new Date();
+        today.setHours(0,0,0,0);
 
-        // Delayed: start <= today and 0% progress
-        const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
-        if (tStart <= today && p === 0 && t._estado !== 'Finalizada') {
-          delayed++;
-        }
+        tasks.forEach(t => {
+          const p = Math.round((t.progress || 0) * 100);
+          const isSub = t.parent && String(t.parent) !== "0" && gantt.isTaskExists(t.parent);
+          const isCompra = t._es_compra;
+          const isDone = (p >= 100 || t._estado === 'Finalizada' || t._estado === 'entregado');
+          const isProg = (p > 0 || t._estado === 'En progreso');
 
-        // Blocked: Not completed, and at least one predecessor is not completed
-        if (p < 100 && t._estado !== 'Finalizada') {
-          if (t.$target && t.$target.length > 0) {
-            let isBlocked = false;
-            for (let linkId of t.$target) {
-              if (window.gantt && gantt.isLinkExists && gantt.isLinkExists(linkId)) {
-                const link = gantt.getLink(linkId);
-                if (gantt.isTaskExists(link.source)) {
-                  const pred = gantt.getTask(link.source);
-                  const predP = Math.round((pred.progress || 0) * 100);
-                  if (predP < 100 && pred._estado !== 'Finalizada') {
-                    isBlocked = true;
-                    break;
-                  }
-                }
+          // Progress & Task Counts
+          totalProgress += p;
+          if (isSub) {
+            totS++;
+            if (isDone) doneS++;
+            else if (isProg) progS++;
+            else pendS++;
+          } else {
+            totT++;
+            if (isDone) doneT++;
+            else if (isProg) progT++;
+            else pendT++;
+          }
+
+          // Costos
+          const costo = parseFloat(t._raw?.costo_tarea || t._costo || t._compra?.valor_unitario || 0);
+          totalCosto += costo;
+          if (isDone) aplicado += costo;
+
+          const tStart = t.start_date ? new Date(t.start_date) : null;
+          if (tStart) tStart.setHours(0,0,0,0);
+
+          // Fechas del proyecto y EVM (Solo tareas de obra)
+          if (!isCompra) {
+            if (tStart) { if (!minDate || tStart < minDate) minDate = tStart; }
+            if (t.end_date) {
+              const ed = new Date(t.end_date);
+              if (!maxDate || ed > maxDate) maxDate = ed;
+            }
+
+            // Lógica EVM
+            let bStart = t._f_inicio_base ? new Date(t._f_inicio_base + 'T00:00:00').getTime() : 0;
+            let bEnd   = t._f_fin_base    ? new Date(t._f_fin_base + 'T00:00:00').getTime() : 0;
+            let pEnd   = t._f_fin_proy    ? new Date(t._f_fin_proy + 'T00:00:00').getTime() : 0;
+
+            if (bEnd > maxBaseDateMs) maxBaseDateMs = bEnd;
+            if (pEnd > maxProyDateMs) maxProyDateMs = pEnd;
+
+            if (bStart && bEnd && bEnd > bStart) {
+              let durationMs = bEnd - bStart;
+              let todayMs = today.getTime();
+              let plannedPct = todayMs >= bEnd ? 1 : (todayMs > bStart ? (todayMs - bStart) / durationMs : 0);
+              totalPlannedWeighted += (plannedPct * durationMs);
+              totalRealWeighted += ((t.progress || 0) * durationMs);
+            }
+
+            // Próximos Hitos
+            if (tStart) {
+              const daysUntil = Math.ceil((tStart - today) / 86400000);
+              if (daysUntil > 0 && daysUntil <= 60 && p === 0) {
+                upcomingMilestones.push({ name: t.text, date: tStart });
               }
             }
-            if (isBlocked) blocked++;
           }
-        }
-        
-        // Milestones and max/min dates logic untouched
-        const daysUntil = Math.ceil((tStart - today) / 86400000);
-        if (daysUntil > 0 && daysUntil <= 60 && p === 0) {
-          upcomingMilestones.push({ name: t.text, date: tStart });
-        }
-        if (t.start_date) {
-          const sd = new Date(t.start_date);
-          if (!minDate || sd < minDate) minDate = sd;
-        }
-        if (t.end_date) {
-          const ed = new Date(t.end_date);
-          if (!maxDate || ed > maxDate) maxDate = ed;
-        }
-      });
-      
-      const total = totT + totS;
-      const totalProgress = totalProgressT + totalProgressS;
-      const avgProgress = total > 0 ? Math.round(totalProgress / total) : 0;
-      const pctAplicado = totalCosto > 0 ? Math.round(aplicado / totalCosto * 100) : 0;
 
-      const fmtCur = n => '$' + n.toLocaleString('es-AR', {maximumFractionDigits:0});
-      const fmtDateShort = d => {
-        if (!d) return '--';
-        const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-        return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-      };
-      
-      const el = id => document.getElementById(id);
-      const setDom = (id, val) => { if (el(id)) el(id).textContent = val; };
-      
-      // Totals
-      setDom('stat-total-t', totT);
-      setDom('stat-total-t-done', totT);
-      setDom('stat-total-t-prog', totT);
-      setDom('stat-total-t-pend', totT);
-      
-      setDom('stat-sub-total', totS);
-      setDom('stat-sub-total-done', totS);
-      setDom('stat-sub-total-prog', totS);
-      setDom('stat-sub-total-pend', totS);
+          // Lógica de Estado / Alertas
+          if (!isDone) {
+            // Riesgos (Atrasos)
+            if (isCompra && t._compra) {
+              const fNec = t._compra.f_arribo_nec ? new Date(t._compra.f_arribo_nec + 'T00:00:00') : null;
+              if (fNec && fNec < today && !t._compra.f_ent) delayed++;
+              
+              const c = t._compra;
+              const fComp = c.f_comp ? new Date(c.f_comp + 'T00:00:00') : null;
+              const hasOC = !!c.f_oc;
+              if (!hasOC && fNec && fNec < today) compraAtrasoProc++;
+              else if (hasOC && fComp && fComp < today) compraAtrasoEnt++;
+            } else {
+              if (tStart && tStart < today && p === 0) delayed++;
+            }
 
-      // Main tasks
-      setDom('stat-done', doneT);
-      setDom('stat-progress', progT);
-      setDom('stat-pending', pendT);
-      setDom('stat-done-pct', totT ? Math.round(doneT/totT*100)+'%' : '0%');
-      setDom('stat-progress-pct', totT ? Math.round(progT/totT*100)+'%' : '0%');
-      setDom('stat-pending-pct', totT ? Math.round(pendT/totT*100)+'%' : '0%');
+            // Bloqueos
+            if (t.$target && t.$target.length > 0) {
+               let isBlocked = false;
+               for (let linkId of t.$target) {
+                 if (window.gantt && gantt.isLinkExists && gantt.isLinkExists(linkId)) {
+                   const link = gantt.getLink(linkId);
+                   if (gantt.isTaskExists(link.source)) {
+                     const pred = gantt.getTask(link.source);
+                     const predP = Math.round((pred.progress || 0) * 100);
+                     if (predP < 100 && pred._estado !== 'Finalizada' && pred._estado !== 'entregado') {
+                       isBlocked = true;
+                       break;
+                     }
+                   }
+                 }
+               }
+               if (isBlocked) blocked++;
+            }
+          }
+        });
 
-      // Subtasks
-      setDom('stat-sub-done', doneS);
-      setDom('stat-sub-prog', progS);
-      setDom('stat-sub-pend', pendS);
-      setDom('stat-sub-done-pct', totS ? Math.round(doneS/totS*100)+'%' : '0%');
-      setDom('stat-sub-progress-pct', totS ? Math.round(progS/totS*100)+'%' : '0%');
-      setDom('stat-sub-pending-pct', totS ? Math.round(pendS/totS*100)+'%' : '0%');
-      
-      // Cost and applied
-      setDom('stat-costo-total', fmtCur(totalCosto));
-      setDom('stat-total-aplicado', fmtCur(aplicado));
-      setDom('stat-aplicado-pct', pctAplicado + '%');
+        // Helpers DOM
+        const setDom = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        const getPct = (part, total) => total > 0 ? Math.round((part / total) * 100) + '%' : '0%';
+        const fmtCur = n => '$' + n.toLocaleString('es-AR', {maximumFractionDigits:0});
+        const fmtDateShort = d => {
+          if (!d) return '--';
+          const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+          return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+        };
 
-      // Project dates
-      if(el('stat-fecha-inicio')) el('stat-fecha-inicio').textContent = fmtDateShort(minDate);
-      if(el('stat-fecha-fin')) {
+        // 1. Panel Superior (KPIs)
+        setDom('stat-total-t', totT);
+        setDom('stat-sub-total', totS);
+        setDom('stat-done', doneT);
+        setDom('stat-done-pct', getPct(doneT, totT));
+        setDom('stat-progress', progT);
+        setDom('stat-progress-pct', getPct(progT, totT));
+        setDom('stat-pending', pendT);
+        setDom('stat-pending-pct', getPct(pendT, totT));
+
+        setDom('stat-costo-total', fmtCur(totalCosto));
+        setDom('stat-total-aplicado', fmtCur(aplicado));
+        setDom('stat-aplicado-pct', getPct(aplicado, totalCosto));
+
+
+
+        setDom('stat-fecha-inicio', fmtDateShort(minDate));
         if (maxDate) {
           const adjustedEnd = new Date(maxDate);
           adjustedEnd.setDate(adjustedEnd.getDate() - 1);
-          el('stat-fecha-fin').textContent = fmtDateShort(adjustedEnd);
-        } else {
-          el('stat-fecha-fin').textContent = '--';
+          setDom('stat-fecha-fin', fmtDateShort(adjustedEnd));
         }
-      }
 
-      // Status bar
-      if(el('status-risk-count'))    el('status-risk-count').textContent    = delayed;
-      if(el('status-blocked-count')) el('status-blocked-count').textContent = blocked;
-      if(el('status-avance'))        el('status-avance').textContent        = avgProgress + '%';
-      if(el('status-avance-bar'))    el('status-avance-bar').style.width    = avgProgress + '%';
-
-      // Milestones
-      const mList = el('status-milestones');
-      if (mList) {
-        upcomingMilestones.sort((a,b) => a.date - b.date);
-        const top = upcomingMilestones.slice(0, 3);
-        if (top.length === 0) {
-          mList.innerHTML = '<div class="status-milestone-empty">Sin hitos próximos</div>';
+        // Render Alertas Compras
+        const kpiProc = document.getElementById('kpi-compra-atraso');
+        const kpiEnt = document.getElementById('kpi-entrega-atraso');
+        if (tasks.some(t => t._es_compra)) {
+          if (kpiProc) kpiProc.style.display = 'flex'; 
+          if (kpiEnt) kpiEnt.style.display = 'flex';
+          setDom('stat-compra-atraso-proc', compraAtrasoProc);
+          setDom('stat-compra-atraso-ent', compraAtrasoEnt);
         } else {
-          const months = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
-          mList.innerHTML = top.map(m => `
-            <div class="status-milestone-item">
-              <div class="status-milestone-date">
-                <span class="m-day">${m.date.getDate()}</span>
-                <span>${months[m.date.getMonth()]}</span>
-              </div>
-              <span class="status-milestone-name">${m.name}</span>
-            </div>
-          `).join('');
+          if (kpiProc) kpiProc.style.display = 'none';
+          if (kpiEnt) kpiEnt.style.display = 'none';
         }
+
+        // 2. Barra Inferior (Status Bar)
+        const totalCount = totT + totS;
+        const avgProgress = totalCount > 0 ? Math.round(totalProgress / totalCount) : 0;
+        setDom('status-risk-count', delayed);
+        setDom('status-blocked-count', blocked);
+        setDom('status-avance', avgProgress + '%');
+        const avanceBar = document.getElementById('status-avance-bar');
+        if (avanceBar) avanceBar.style.width = avgProgress + '%';
+
+        const mList = document.getElementById('status-milestones');
+        if (mList) {
+          upcomingMilestones.sort((a,b) => a.date - b.date);
+          const top = upcomingMilestones.slice(0, 3);
+          if (top.length === 0) mList.innerHTML = '<div class="status-milestone-empty">Sin hitos próximos</div>';
+          else {
+             const months = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+             mList.innerHTML = top.map(m => `
+               <div class="status-milestone-item">
+                 <div class="status-milestone-date">
+                   <span class="m-day">${m.date.getDate()}</span>
+                   <span>${months[m.date.getMonth()]}</span>
+                 </div>
+                 <span class="status-milestone-name">${m.name}</span>
+               </div>`).join('');
+          }
+        }
+
+        return { minDate, maxDate };
+      } catch(e) {
+        console.error("Error en updateSummary:", e);
+        return null;
       }
-    } catch(_) {}
-  }
+    }
 
   function applyScale(scale) {
     currentScale = scale;
@@ -666,8 +916,8 @@ window.GanttApp = (() => {
     configure();
     gantt.init('gantt_here');
 
-    // Marker de hoy
-    addTodayMarker();
+    // Markers
+    addMarkers();
 
       // Toolbar: zoom
     document.getElementById('btn-zoom-day').addEventListener('click',   () => applyScale('day'));
@@ -676,14 +926,36 @@ window.GanttApp = (() => {
     document.getElementById('btn-today').addEventListener('click', () => gantt.showDate(new Date()));
   }
 
-  /* ── Today marker helper (clearAll removes markers) ───── */
-  function addTodayMarker() {
+  /* ── Markers helper ───── */
+  function addMarkers(startDate = null, endDate = null) {
+    const today = new Date();
     gantt.addMarker({
-      start_date: new Date(),
+      start_date: today,
       css: 'today-marker',
       text: 'Hoy',
-      title: new Date().toLocaleDateString('es')
+      title: 'Hoy: ' + today.toLocaleDateString('es')
     });
+
+    if (startDate) {
+      gantt.addMarker({
+        start_date: startDate,
+        css: 'project-start-marker',
+        text: 'INICIO',
+        title: 'Inicia: ' + startDate.toLocaleDateString('es')
+      });
+    }
+
+    if (endDate) {
+      // Adjusted end date (visual fix)
+      const d = new Date(endDate);
+      d.setDate(d.getDate() - 1);
+      gantt.addMarker({
+        start_date: d,
+        css: 'project-end-marker',
+        text: 'FIN',
+        title: 'Finaliza: ' + d.toLocaleDateString('es')
+      });
+    }
   }
 
   function centerToday() {
@@ -723,7 +995,7 @@ window.GanttApp = (() => {
       const links  = buildLinks(tasks);
       gantt.clearAll();
       gantt.parse({ data: gtasks, links });
-      addTodayMarker();
+      addMarkers();
       
       // Ampliar la linea de tiempo para poder navegar hacia fechas vacías
       const state = gantt.getState();
@@ -739,10 +1011,14 @@ window.GanttApp = (() => {
 
       gantt.render();
       if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
+      
+      // Update markers with dates
+      const summary = updateSummary();
+      if (summary) addMarkers(summary.minDate, summary.maxDate);
+
       setTimeout(() => {
         centerToday();
       }, 150);
-      updateSummary();
     });
   }
 
@@ -767,7 +1043,10 @@ window.GanttApp = (() => {
     const links = buildLinks(allTasks);
     gantt.clearAll();
     gantt.parse({ data: allGtasks, links });
-    addTodayMarker();
+    
+    // Summary also gives us dates
+    const summary = updateSummary();
+    addMarkers(summary?.minDate, summary?.maxDate);
 
     const state = gantt.getState();
     const today = new Date();
@@ -815,200 +1094,46 @@ window.GanttApp = (() => {
   function isAllProjects() { return _allProjectsMode; }
 
   /* ── Purchases Gantt View ────────────────────────────────── */
-  let _purchasesGantt = null;
-
-  function purchaseStateCss(p) {
-    if (!p) return 'purchase-normal';
-    const today = new Date(); today.setHours(0,0,0,0);
-    const toDateStr = s => { if (!s) return null; const d = new Date(s + 'T00:00:00'); d.setHours(0,0,0,0); return d; };
-    const necesaria = toDateStr(p.fecha_arribo_necesaria);
-    const estimada  = toDateStr(p.fecha_arribo_estimada);
-    const ocStates  = ['OC emitida','fecha comprometida','entregado'];
-    if (p.estado === 'entregado') return 'purchase-normal';
-    if (ocStates.includes(p.estado)) {
-      if (estimada && estimada < today) return 'purchase-overdue';
-      return 'purchase-normal';
-    }
-    // Sin OC: verificar si ya es tarde para llegar a tiempo
-    if (necesaria) {
-      const diasArrib = parseInt(p.dias_arribo || 0);
-      const deadline = new Date(necesaria); deadline.setUTCDate(deadline.getUTCDate() - diasArrib);
-      deadline.setHours(0,0,0,0);
-      if (deadline <= today) return 'purchase-overdue';
-      const warnDate = new Date(deadline); warnDate.setDate(warnDate.getDate() - 7);
-      if (warnDate <= today) return 'purchase-at-risk';
-    }
-    return 'purchase-normal';
-  }
-
-  function purchaseToGantt(p, overrideColor, projectName = '') {
-    const startStr = p.fecha_solicitud || p.fecha_creacion?.split('T')[0] || new Date().toISOString().split('T')[0];
-    const endRaw   = p.fecha_arribo_estimada || p.fecha_arribo_necesaria;
-    let endStr;
-    if (endRaw) {
-      const e = new Date(endRaw + 'T00:00:00Z');
-      e.setUTCDate(e.getUTCDate() + 1);
-      endStr = e.toISOString().split('T')[0];
-    }
-    const css = purchaseStateCss(p);
-    const respName = (window.PurchaseModule && window.PurchaseModule.getResponsableName) 
-                     ? window.PurchaseModule.getResponsableName(p.id_responsable) 
-                     : (p.responsable_nombre || p.id_responsable || '');
-    const baseColor = overrideColor || '#4f8ef7';
-    return {
-      id:          `pur_${p.id_compra}`,
-      text:        p.producto,
-      start_date:  startStr,
-      end_date:    endStr,
-      duration:    endStr ? undefined : 7,
-      progress:    p.estado === 'entregado' ? 1 : 0,
-      color:       baseColor,
-      textColor:   baseColor === '#ffffff' ? '#0f172a' : '#ffffff',
-      _estado:     p.estado,
-      _css:        css,
-      _purchase:   p,
-      responsable: respName || '', 
-      _projectName: projectName || p.proyecto_nombre || '',
-      type:        'task'
-    };
-  }
-
-  function loadPurchasesView(purchases, allTasks = []) {
+  function loadPurchasesView(purchases) {
     const container = document.getElementById('gantt_here');
     if (container) container.style.opacity = '0';
 
-    const items  = purchases.map(p => {
-      let color = undefined;
-      let pName = '';
-      if (p.id_proyecto && _projectsMap[p.id_proyecto]) {
-        color = _projectsMap[p.id_proyecto].color;
-        pName = _projectsMap[p.id_proyecto].nombre;
-      } else if (p.id_tarea) {
-        const t = allTasks.find(x => x.id_tarea == p.id_tarea);
-        if (t && _projectsMap[t.id_proyecto]) {
-          color = _projectsMap[t.id_proyecto].color;
-          pName = _projectsMap[t.id_proyecto].nombre;
-        }
-      }
-      return purchaseToGantt(p, color, pName);
+    // Restaurar configuración estándar (columnas, templates multicapa, etc)
+    configure();
+
+    const items = purchases.map(p => {
+      const color = _projectsMap[p.id_proyecto]?.color || '#6366f1';
+      const g = dbPurchaseToGantt(p, color);
+      g.parent = 0; 
+      return g;
     });
-    const today  = new Date();
-
-    // Usamos la instancia gantt principal re-inicializada para compras
-    gantt.config.columns = [
-      { name: 'text',        label: 'Producto',    tree: true,  width: 200,
-        template: t => `<span style="font-weight:600">${t.text||''}</span>` },
-      { name: 'responsable', label: 'Resp.',        width: 80, align:'left',
-        template: t => `<span style="font-size:11px;color:var(--text-muted)">${(t.responsable||'').split('@')[0]||'—'}</span>` },
-      { name: 'estado_col',  label: 'Estado',       width: 110, align:'center',
-        template: t => {
-          const map = {
-            'solicitada':'badge-pur-sol','solicitando presupuesto':'badge-pur-pres',
-            'presupuesto recibido':'badge-pur-prec','OC emitida':'badge-pur-oc',
-            'fecha comprometida':'badge-pur-comp','entregado':'badge-pur-ent'
-          };
-          return `<span class="badge ${map[t._estado]||'badge-pur-sol'}">${t._estado||'—'}</span>`;
-        }
-      },
-      { name: 'arribo_nec',  label: 'Necesaria',   width: 80, align:'center',
-        template: t => {
-          const p = t._purchase;
-          if (!p?.fecha_arribo_necesaria) return '—';
-          const d = new Date(p.fecha_arribo_necesaria + 'T00:00:00');
-          return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-        }
-      },
-      { name: 'arribo_est',  label: 'Estimada',    width: 80, align:'center',
-        template: t => {
-          const p = t._purchase;
-          if (!p?.fecha_arribo_estimada) return '<span style="color:var(--text-dim)">—</span>';
-          const d = new Date(p.fecha_arribo_estimada + 'T00:00:00');
-          const overdue = d < today;
-          const color = overdue ? 'var(--red)' : 'var(--cyan)';
-          return `<span style="color:${color};font-weight:600">${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}</span>`;
-        }
-      },
-      { name: 'valor_col',   label: 'Total',       width: 80, align:'right',
-        template: t => {
-          const v = t._purchase?.valor_total || 0;
-          return `<span style="color:var(--cyan);font-weight:600">$${parseFloat(v).toLocaleString('es-AR',{maximumFractionDigits:0})}</span>`;
-        }
-      }
-    ];
-
-    gantt.templates.task_class = (s, e, t) => t._css || 'purchase-normal';
-    gantt.templates.task_text  = (s, e, t) => {
-      const tc = t.textColor ? `color:${t.textColor} !important;` : '';
-      return `<span class="task-bar-label" style="${tc}">${t.text||''}</span>`;
-    };
 
     gantt.clearAll();
     gantt.parse({ data: items, links: [] });
-    addTodayMarker();
+    addMarkers();
+    
+    centerAndShow(container);
+  }
 
-    // Expandir rango de fechas
+  function centerAndShow(container) {
+    const today = new Date();
     const state = gantt.getState();
     if (state.min_date && state.max_date) {
       const es = new Date(Math.min(state.min_date.getTime(), today.getTime()));
       es.setMonth(es.getMonth() - 1);
       const ee = new Date(Math.max(state.max_date.getTime(), today.getTime()));
       ee.setMonth(ee.getMonth() + 3);
-      gantt.config.start_date = es;
+      gantt.config.start_date = es; 
       gantt.config.end_date   = ee;
     }
+
     gantt.render();
     if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
+    
     setTimeout(() => {
-        centerToday();
+      if (container) container.style.opacity = '1';
+      centerToday();
     }, 150);
-  }
-
-  function loadCombinedView(tasks, purchases) {
-    const container = document.getElementById('gantt_here');
-    if (container) container.style.opacity = '0';
-
-    // Restaurar columnas originales de tareas
-    configure();
-    const taskItems = tasks.map(t => {
-      const c = _projectsMap[t.id_proyecto]?.color || '#6366f1';
-      return dbTaskToGantt(t, c);
-    });
-    const purItems  = purchases.map(p => {
-      let pName = '';
-      if (p.id_proyecto && _projectsMap[p.id_proyecto]) {
-        pName = _projectsMap[p.id_proyecto].nombre;
-      } else if (p.id_tarea) {
-          const t = tasks.find(x => x.id_tarea == p.id_tarea);
-          if (t && _projectsMap[t.id_proyecto]) pName = _projectsMap[t.id_proyecto].nombre;
-      }
-      // Diferenciar las compras visualmente (blanco) en la vista consolidada
-      const g = purchaseToGantt(p, '#ffffff', pName);
-      // Si la compra tiene una tarea vinculada que existe en el gantt, hacerla hija
-      if (p.id_tarea && tasks.some(t => t.id_tarea === p.id_tarea)) {
-        g.parent = p.id_tarea;
-      }
-      return g;
-    });
-    const links = buildLinks(tasks);
-    gantt.clearAll();
-    gantt.parse({ data: [...taskItems, ...purItems], links });
-    addTodayMarker();
-    const state = gantt.getState();
-    const today = new Date();
-    if (state.min_date && state.max_date) {
-      const es = new Date(Math.min(state.min_date.getTime(), today.getTime()));
-      es.setMonth(es.getMonth() - 2);
-      const ee = new Date(Math.max(state.max_date.getTime(), today.getTime()));
-      ee.setMonth(ee.getMonth() + 4);
-      gantt.config.start_date = es;
-      gantt.config.end_date   = ee;
-    }
-    gantt.render();
-    if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
-    setTimeout(() => {
-        centerToday();
-    }, 150);
-    updateSummary();
   }
 
   function restoreTasksView() {
@@ -1020,5 +1145,8 @@ window.GanttApp = (() => {
     }
   }
 
-  return { init, loadProject, loadAllProjects, setProjectsMap, addTask, refreshTask, applyAllUpdated, removeTask, getCurrentProjectId, isAllProjects, updateSummary, loadPurchasesView, loadCombinedView, purchaseStateCss, restoreTasksView, getColorMode, setColorMode };
+  return { 
+    init, loadProject, loadAllProjects, setProjectsMap, addTask, refreshTask, applyAllUpdated, removeTask, getCurrentProjectId, isAllProjects, updateSummary, loadPurchasesView, restoreTasksView, getColorMode, setColorMode, toggleColorMode,
+    getAllTasks: () => gantt.getTaskByTime()
+  };
 })();

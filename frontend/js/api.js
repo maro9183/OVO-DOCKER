@@ -31,7 +31,7 @@ window.API = (() => {
     createProject:     (d)      => req('POST',   '/projects', d),
     updateProject:     (id, d)  => req('PUT',    `/projects/${id}`, d),
     deleteProject:     (id)     => req('DELETE', `/projects/${id}`),
-    getProjectTasks:   (id)     => req('GET',    `/projects/${id}/tasks`),
+    getProjectTasks:   (id)     => req('GET',    `/tasks/project/${id}`),
 
     // Tasks
     getTasks:          ()       => req('GET',    '/tasks'),
