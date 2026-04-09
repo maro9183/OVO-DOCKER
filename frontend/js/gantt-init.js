@@ -637,6 +637,44 @@ window.GanttApp = (() => {
     });
   }
 
+  function addProjectMarkers(tasks) {
+    if (!tasks || tasks.length === 0) return;
+    
+    let minDate = null, maxDate = null;
+    
+    tasks.forEach(t => {
+      const start = t.fecha_inicio ? new Date(t.fecha_inicio) : null;
+      const end = t.fecha_fin ? new Date(t.fecha_fin) : null;
+      
+      if (start) {
+        if (!minDate || start < minDate) minDate = start;
+      }
+      if (end) {
+        if (!maxDate || end > maxDate) maxDate = end;
+      }
+    });
+    
+    // Agregar marker de inicio del proyecto
+    if (minDate) {
+      gantt.addMarker({
+        start_date: minDate,
+        css: 'project-start-marker',
+        text: '🚀 Inicio',
+        title: 'Inicio del proyecto: ' + minDate.toLocaleDateString('es')
+      });
+    }
+    
+    // Agregar marker de fin del proyecto
+    if (maxDate) {
+      gantt.addMarker({
+        start_date: maxDate,
+        css: 'project-end-marker',
+        text: '🏁 Fin',
+        title: 'Fin del proyecto: ' + maxDate.toLocaleDateString('es')
+      });
+    }
+  }
+
   function setProjectsMap(projects) {
     _projectsMap = {};
     projects.forEach(p => {
@@ -658,6 +696,7 @@ window.GanttApp = (() => {
       gantt.clearAll();
       gantt.parse({ data: gtasks, links });
       addTodayMarker();
+      addProjectMarkers(tasks);
       
       // Ampliar la linea de tiempo para poder navegar hacia fechas vacías
       const state = gantt.getState();
@@ -697,6 +736,46 @@ window.GanttApp = (() => {
     gantt.clearAll();
     gantt.parse({ data: allGtasks, links });
     addTodayMarker();
+    addProjectMarkers(allRawTasks);
+
+    const state = gantt.getState();
+    const today = new Date();
+    if (state.min_date && state.max_date) {
+      const expandStart = new Date(Math.min(state.min_date.getTime(), today.getTime()));
+      expandStart.setMonth(expandStart.getMonth() - 2);
+      const expandEnd = new Date(Math.max(state.max_date.getTime(), today.getTime()));
+      expandEnd.setMonth(expandEnd.getMonth() + 4);
+      gantt.config.start_date = expandStart;
+      gantt.config.end_date   = expandEnd;
+    }
+
+    gantt.render();
+    if (typeof gantt.renderMarkers === 'function') gantt.renderMarkers();
+    gantt.showDate(new Date());
+    updateSummary();
+    return allRawTasks;
+  }
+
+  async function loadCompras() {
+    currentProjectId    = '__compras__';
+    _allProjectsMode    = false;
+
+    const comprasTasks = await API.getCompras();
+    const allGtasks = [];
+    const allRawTasks = [];
+
+    comprasTasks.forEach(t => {
+      const projInfo = _projectsMap[t.id_proyecto];
+      const color = projInfo ? projInfo.color : '#6366f1';
+      allGtasks.push(dbTaskToGantt(t, color));
+      allRawTasks.push(t);
+    });
+
+    const links = buildLinks(comprasTasks);
+    gantt.clearAll();
+    gantt.parse({ data: allGtasks, links });
+    addTodayMarker();
+    addProjectMarkers(allRawTasks);
 
     const state = gantt.getState();
     const today = new Date();
@@ -741,5 +820,5 @@ window.GanttApp = (() => {
   function getCurrentProjectId() { return currentProjectId; }
   function isAllProjects() { return _allProjectsMode; }
 
-  return { init, loadProject, loadAllProjects, setProjectsMap, addTask, refreshTask, applyAllUpdated, removeTask, getCurrentProjectId, isAllProjects, updateSummary };
+  return { init, loadProject, loadAllProjects, loadCompras, setProjectsMap, addTask, refreshTask, applyAllUpdated, removeTask, getCurrentProjectId, isAllProjects, updateSummary };
 })();

@@ -86,6 +86,38 @@ router.get('/:id/notes', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── GET /api/tasks/compras/all ──────────────────────────────────────────────
+router.get('/compras/all', async (req, res) => {
+  try {
+    let sql = `SELECT t.*, 
+               (SELECT COUNT(*) FROM notas n WHERE n.tarea = t.id_tarea) as note_count,
+               sr.nombre as subresponsable_nombre
+               FROM tareas t 
+               LEFT JOIN subresponsables sr ON t.id_subresp = sr.id_subresp
+               WHERE t.es_compra = 1
+               ORDER BY t.fecha_inicio, t.id_tarea`;
+    let params = [];
+    
+    // Filtro por usuario
+    if (req.user && req.user.proyectos !== 'ALL') {
+      const allowedIds = req.user.proyectos.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
+      if (allowedIds.length === 0) return res.json([]);
+      
+      sql = `SELECT t.*, 
+             (SELECT COUNT(*) FROM notas n WHERE n.tarea = t.id_tarea) as note_count,
+             sr.nombre as subresponsable_nombre
+             FROM tareas t 
+             LEFT JOIN subresponsables sr ON t.id_subresp = sr.id_subresp
+             WHERE t.es_compra = 1 AND t.id_proyecto IN (${allowedIds.join(',')}) 
+             ORDER BY t.fecha_inicio, t.id_tarea`;
+    }
+    
+    const [rows] = await getPool().execute(sql, params);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
 // ─── POST /api/tasks ─────────────────────────────────────────────────────────
 router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, res) => {
   const conn = await getPool().getConnection();
@@ -98,7 +130,7 @@ router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, 
       duracion_dias = 1, responsable = null,
       avance = 0, dependencias = '', recursos = '',
       tipo_dias = 'calendario', notificado = 0,
-      costo_tarea = 0
+      costo_tarea = 0, es_compra = 0
     } = req.body;
 
     if (!id_proyecto || !tarea || !fecha_inicio)
@@ -114,11 +146,11 @@ router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, 
       `INSERT INTO tareas
          (id_proyecto, id_parent, id_subresp, tarea, descripcion, fecha_inicio, fecha_inicio_proyectada,
           duracion_dias, fecha_fin, estado, responsable, avance,
-          dependencias, recursos, tipo_dias, notificado, costo_tarea)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          dependencias, recursos, tipo_dias, notificado, costo_tarea, es_compra)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [id_proyecto, id_parent, id_subresp, tarea, descripcion || null, fecha_inicio, fechaInicioProy,
        duracion_dias, fechaFin, estado, responsable,
-       avance, dependencias || null, recursos || null, tipo_dias, notificado, costo_tarea]
+       avance, dependencias || null, recursos || null, tipo_dias, notificado, costo_tarea, es_compra]
     );
 
     // Si tiene padre, recalcular sus fechas
@@ -176,7 +208,7 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
          dependencias=?, recursos=?,
          tipo_dias=?, notificado=?,
          fecha_iniciada=?, fecha_finalizada=?,
-         costo_tarea=?
+         costo_tarea=?, es_compra=?
        WHERE id_tarea=?`,
       [
         task.id_proyecto, task.id_parent || null, task.id_subresp || null, task.tarea, task.descripcion || null,
@@ -187,6 +219,7 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
         task.tipo_dias, task.notificado ? 1 : 0,
         task.fecha_iniciada || null, task.fecha_finalizada || null,
         task.costo_tarea !== undefined ? task.costo_tarea : 0,
+        task.es_compra ? 1 : 0,
         id
       ]
     );

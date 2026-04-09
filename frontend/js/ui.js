@@ -47,16 +47,21 @@ window.UI = (() => {
     }
     const active = GanttApp.getCurrentProjectId();
     const isAll = active === '__all__';
+    const isCompras = active === '__compras__';
 
     // "Todos los proyectos" item
     let html = `
       <div class="all-projects-item ${isAll ? 'active' : ''}" id="btn-all-projects">
         <span class="all-projects-dot"></span>
         <span class="project-name">MENÚ</span>
+      </div>
+      <div class="all-projects-item ${isCompras ? 'active' : ''}" id="btn-compras-projects" style="background:var(--indigo-glow)">
+        <span class="all-projects-dot" style="background:var(--amber)"></span>
+        <span class="project-name">📦 COMPRAS</span>
       </div>`;
 
     html += projects.map(p => `
-      <div class="project-item ${!isAll && p.id_proyecto == active ? 'active' : ''}"
+      <div class="project-item ${!isAll && !isCompras && p.id_proyecto == active ? 'active' : ''}"
            data-id="${p.id_proyecto}" data-color="${p.color}"
            style="--active-color:${p.color}">
         <span class="project-dot" style="background:${p.color}"></span>
@@ -94,6 +99,9 @@ window.UI = (() => {
     });
     const btnAll = document.getElementById('btn-all-projects');
     if (btnAll) btnAll.addEventListener('click', selectAllProjects);
+    
+    const btnCompras = document.getElementById('btn-compras-projects');
+    if (btnCompras) btnCompras.addEventListener('click', selectCompras);
   }
 
   async function selectAllProjects() {
@@ -106,6 +114,18 @@ window.UI = (() => {
       renderProjectList();
       showMainUI();
     } catch (e) { toast('Error al cargar proyectos', 'error'); console.error(e); }
+  }
+
+  async function selectCompras() {
+    document.getElementById('project-title').textContent = 'Cargando...';
+    try {
+      allTasks = await GanttApp.loadCompras();
+      document.getElementById('project-title').textContent = '📦 COMPRAS';
+      document.getElementById('project-badge').textContent = '';
+      document.getElementById('project-badge').style.display = 'none';
+      renderProjectList();
+      showMainUI();
+    } catch (e) { toast('Error al cargar compras', 'error'); console.error(e); }
   }
 
   async function selectProject(id, color) {
@@ -285,6 +305,10 @@ window.UI = (() => {
     const tipo = raw?.tipo_dias || 'calendario';
     document.querySelectorAll('input[name="tipo_dias"]').forEach(r => { r.checked = r.value === tipo; });
 
+    // Es compra
+    const esCompra = raw?.es_compra || 0;
+    document.getElementById('field-es-compra').checked = esCompra ? true : false;
+
     renderRecursosSelect(raw?.recursos || '');
     renderDependenciasSelect(raw?.dependencias || '', projSel.value, raw?.id_parent || '');
     
@@ -344,6 +368,7 @@ window.UI = (() => {
     const tipoDias = document.querySelector('input[name="tipo_dias"]:checked')?.value || 'calendario';
     const depIds   = [...document.querySelectorAll('input[name="dep_check"]:checked')].map(c => c.value);
     const recIds   = [...document.querySelectorAll('input[name="rec_check"]:checked')].map(c => c.value);
+    const esCompra = document.getElementById('field-es-compra')?.checked ? 1 : 0;
     return {
       id_proyecto:   +document.getElementById('field-proyecto').value,
       id_parent:     document.getElementById('field-parent').value ? +document.getElementById('field-parent').value : null,
@@ -357,7 +382,8 @@ window.UI = (() => {
       recursos:       recIds.join(',') || null,
       tipo_dias:      tipoDias,
       avance:         +document.getElementById('field-avance').value,
-      dependencias:   depIds.join(',') || null
+      dependencias:   depIds.join(',') || null,
+      es_compra:      esCompra
     };
   }
 

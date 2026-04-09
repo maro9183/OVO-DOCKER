@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS tareas (
   fecha_iniciada          DATETIME,
   fecha_finalizada        DATETIME,
   tipo_dias               ENUM('calendario','laboral') DEFAULT 'calendario',
+  es_compra               TINYINT(1) DEFAULT 0,
   FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto) ON DELETE CASCADE,
   FOREIGN KEY (id_parent)   REFERENCES tareas(id_tarea)       ON DELETE CASCADE,
   FOREIGN KEY (id_subresp)  REFERENCES subresponsables(id_subresp) ON DELETE SET NULL

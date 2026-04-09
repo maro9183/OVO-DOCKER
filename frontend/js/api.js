@@ -36,6 +36,7 @@ window.API = (() => {
     // Tasks
     getTasks:          ()       => req('GET',    '/tasks'),
     getTask:           (id)     => req('GET',    `/tasks/${id}`),
+    getCompras:        ()       => req('GET',    '/tasks/compras/all'),
     createTask:        (d)      => req('POST',   '/tasks', d),
     updateTask:        (id, d)  => req('PUT',    `/tasks/${id}`, d),
     deleteTask:        (id)     => req('DELETE', `/tasks/${id}`),
