@@ -3,6 +3,38 @@ const router  = express.Router();
 const { getPool } = require('../db');
 const { requirePermission } = require('../middleware/auth');
 
+// ─── CONFIGURACIÓN CENTRALIZADA (Production-Grade) ──────────────────────────
+
+const PURCHASE_COLUMNS = [
+  'id_compra', 'id_tarea', 'id_proyecto', 'producto', 'descripcion', 
+  'cantidad', 'valor_unitario', 'valor_total', 'id_solicitante', 
+  'id_responsable', 'estado', 'dias_arribo', 'fecha_solicitud', 
+  'fecha_presupuesto_solic', 'fecha_presupuesto_recib', 'fecha_oc_emitida', 
+  'fecha_comprometida', 'fecha_entregado', 'fecha_arribo_estimada', 
+  'fecha_arribo_necesaria', 'notas', 'dependencias', 'links_facturas', 'fecha_creacion'
+];
+
+const PURCHASE_WHITELIST = PURCHASE_COLUMNS.filter(c => !['id_compra', 'fecha_creacion'].includes(c));
+
+/**
+ * Valida que el payload no contenga campos fuera de la whitelist.
+ */
+function validateWhitelist(payload, whitelist) {
+  const keys = Object.keys(payload);
+  if (keys.length === 0) {
+    const err = new Error('El cuerpo de la petición no puede estar vacío');
+    err.status = 400;
+    throw err;
+  }
+  for (const key of keys) {
+    if (!whitelist.includes(key)) {
+      const err = new Error(`Campo no permitido: ${key}`);
+      err.status = 400;
+      throw err;
+    }
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function addDaysToDate(dateStr, days) {
@@ -18,13 +50,12 @@ function todayStr() {
 
 /**
  * Calcula los campos automáticos según el estado de la compra.
- * Recibe el body de la request y el registro actual de la BD.
  */
 function applyStateDates(body, current = {}) {
-  const estado = body.estado;
+  const estado = body.estado || current.estado;
   const out = { ...body };
 
-  // Calcular valor_total siempre
+  // Calcular valor_total
   const cant = parseFloat(out.cantidad ?? current.cantidad ?? 1);
   const vu   = parseFloat(out.valor_unitario ?? current.valor_unitario ?? 0);
   if (!isNaN(cant) && !isNaN(vu)) {
@@ -33,44 +64,26 @@ function applyStateDates(body, current = {}) {
 
   if (!estado) return out;
 
-  const prev = current.estado;
-
-  // Timestamps automáticos al entrar en cada estado (solo si estaban vacíos)
+  // Timestamps automáticos (solo si están vacíos en el body y en la DB)
   if (estado === 'solicitando presupuesto') {
-    if (!current.fecha_presupuesto_solic && !out.fecha_presupuesto_solic) {
-      out.fecha_presupuesto_solic = todayStr();
-    }
-    if (!current.fecha_solicitud && !out.fecha_solicitud) {
-      out.fecha_solicitud = todayStr();
-    }
+    if (!current.fecha_presupuesto_solic && !out.fecha_presupuesto_solic) out.fecha_presupuesto_solic = todayStr();
+    if (!current.fecha_solicitud && !out.fecha_solicitud) out.fecha_solicitud = todayStr();
+  }
+  if (estado === 'presupuesto recibido' && !current.fecha_presupuesto_recib && !out.fecha_presupuesto_recib) {
+    out.fecha_presupuesto_recib = todayStr();
+  }
+  if (estado === 'OC emitida' && !current.fecha_oc_emitida && !out.fecha_oc_emitida) {
+    out.fecha_oc_emitida = todayStr();
+  }
+  if (estado === 'fecha comprometida' && !current.fecha_comprometida && !out.fecha_comprometida) {
+    out.fecha_comprometida = todayStr();
+  }
+  if (estado === 'entregado' && !current.fecha_entregado && !out.fecha_entregado) {
+    out.fecha_entregado = todayStr();
   }
 
-  if (estado === 'presupuesto recibido') {
-    if (!current.fecha_presupuesto_recib && !out.fecha_presupuesto_recib) {
-      out.fecha_presupuesto_recib = todayStr();
-    }
-  }
-
-  if (estado === 'OC emitida') {
-    if (!current.fecha_oc_emitida && !out.fecha_oc_emitida) {
-      out.fecha_oc_emitida = todayStr();
-    }
-  }
-
-  if (estado === 'fecha comprometida') {
-    if (!current.fecha_comprometida && !out.fecha_comprometida) {
-      out.fecha_comprometida = todayStr();
-    }
-  }
-
-  if (estado === 'entregado') {
-    if (!current.fecha_entregado && !out.fecha_entregado) {
-      out.fecha_entregado = todayStr();
-    }
-  }
-
-  // Recalcular fecha_arribo_estimada cuando fecha_oc_emitida o dias_arribo cambian
-  const ocDate   = out.fecha_oc_emitida   ?? current.fecha_oc_emitida;
+  // Recalcular fecha_arribo_estimada
+  const ocDate    = out.fecha_oc_emitida   ?? current.fecha_oc_emitida;
   const diasArrib = out.dias_arribo        ?? current.dias_arribo;
   if (ocDate && diasArrib > 0) {
     out.fecha_arribo_estimada = addDaysToDate(ocDate, diasArrib);
@@ -79,43 +92,43 @@ function applyStateDates(body, current = {}) {
   return out;
 }
 
-// ─── JOIN base query ──────────────────────────────────────────────────────────
-const SELECT_BASE = `
-  SELECT c.*,
-    rs.nombre AS solicitante_nombre, rs.correo AS solicitante_correo,
-    rr.nombre AS responsable_nombre, rr.correo AS responsable_correo,
-    t.descripcion AS tarea_nombre, COALESCE(c.id_proyecto, t.id_proyecto) AS id_proyecto
-  FROM compras c
+const SELECT_BLOCK = PURCHASE_COLUMNS.map(c => `c.${c}`).join(', ');
+const JOIN_PART = `
   LEFT JOIN responsables rs ON c.id_solicitante = rs.id_resp
   LEFT JOIN responsables rr ON c.id_responsable = rr.id_resp
   LEFT JOIN tareas t ON c.id_tarea = t.id_tarea
 `;
+const EXTRA_FIELDS = `,
+  rs.nombre AS solicitante_nombre, rs.correo AS solicitante_correo,
+  rr.nombre AS responsable_nombre, rr.correo AS responsable_correo,
+  t.tarea AS tarea_nombre, COALESCE(c.id_proyecto, t.id_proyecto) AS id_proyecto
+`;
 
-// ─── GET /api/purchases ───────────────────────────────────────────────────────
+// ─── ENDPOINTS ───────────────────────────────────────────────────────────────
+
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await getPool().execute(SELECT_BASE + ' ORDER BY c.fecha_creacion DESC');
+    const [rows] = await getPool().execute(
+      `SELECT ${SELECT_BLOCK} ${EXTRA_FIELDS} FROM compras c ${JOIN_PART} ORDER BY c.fecha_creacion DESC`
+    );
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── GET /api/purchases/task/:taskId ─────────────────────────────────────────
-// IMPORTANTE: esta ruta debe ir ANTES de /:id para no confundirse
 router.get('/task/:taskId', async (req, res) => {
   try {
     const [rows] = await getPool().execute(
-      SELECT_BASE + ' WHERE c.id_tarea = ? ORDER BY c.fecha_creacion DESC',
+      `SELECT ${SELECT_BLOCK} ${EXTRA_FIELDS} FROM compras c ${JOIN_PART} WHERE c.id_tarea = ? ORDER BY c.fecha_creacion DESC`,
       [req.params.taskId]
     );
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── GET /api/purchases/:id ───────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await getPool().execute(
-      SELECT_BASE + ' WHERE c.id_compra = ?',
+      `SELECT ${SELECT_BLOCK} ${EXTRA_FIELDS} FROM compras c ${JOIN_PART} WHERE c.id_compra = ?`,
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Compra no encontrada' });
@@ -123,110 +136,77 @@ router.get('/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── POST /api/purchases ──────────────────────────────────────────────────────
 router.post('/', requirePermission('CREATE'), async (req, res) => {
   try {
+    validateWhitelist(req.body, PURCHASE_WHITELIST);
     const data = applyStateDates(req.body, {});
+    
+    if (!data.producto) return res.status(400).json({ error: 'El campo producto es requerido' });
+    if (!data.id_proyecto) return res.status(400).json({ error: 'El campo id_proyecto es requerido para todas las compras' });
 
-    const {
-      id_tarea = null,
-      id_proyecto = null,
-      producto,
-      descripcion = null,
-      cantidad = 1,
-      valor_unitario = 0,
-      valor_total = 0,
-      id_solicitante = null,
-      id_responsable = null,
-      estado = 'solicitada',
-      dias_arribo = 0,
-      fecha_solicitud = null,
-      fecha_presupuesto_solic = null,
-      fecha_presupuesto_recib = null,
-      fecha_oc_emitida = null,
-      fecha_comprometida = null,
-      fecha_entregado = null,
-      fecha_arribo_estimada = null,
-      fecha_arribo_necesaria = null,
-      notas = null,
-      links_facturas = null
-    } = data;
+    const cols = [];
+    const syms = [];
+    const vals = [];
 
-    if (!producto) return res.status(400).json({ error: 'El campo producto es requerido' });
+    for (const key of Object.keys(data)) {
+      if (PURCHASE_WHITELIST.includes(key)) {
+        cols.push(key);
+        syms.push('?');
+        vals.push(data[key]);
+      }
+    }
 
     const [result] = await getPool().execute(
-      `INSERT INTO compras
-        (id_tarea, id_proyecto, producto, descripcion, cantidad, valor_unitario, valor_total,
-         id_solicitante, id_responsable, estado, dias_arribo,
-         fecha_solicitud, fecha_presupuesto_solic, fecha_presupuesto_recib,
-         fecha_oc_emitida, fecha_comprometida, fecha_entregado,
-         fecha_arribo_estimada, fecha_arribo_necesaria, notas, links_facturas)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [id_tarea, id_proyecto, producto, descripcion, cantidad, valor_unitario, valor_total,
-       id_solicitante, id_responsable, estado, dias_arribo,
-       fecha_solicitud, fecha_presupuesto_solic, fecha_presupuesto_recib,
-       fecha_oc_emitida, fecha_comprometida, fecha_entregado,
-       fecha_arribo_estimada, fecha_arribo_necesaria, notas, links_facturas]
+      `INSERT INTO compras (${cols.join(', ')}) VALUES (${syms.join(', ')})`,
+      vals
     );
 
     const [newRow] = await getPool().execute(
-      SELECT_BASE + ' WHERE c.id_compra = ?',
+      `SELECT ${SELECT_BLOCK} ${EXTRA_FIELDS} FROM compras c ${JOIN_PART} WHERE c.id_compra = ?`,
       [result.insertId]
     );
     res.status(201).json(newRow[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(err.status || 500).json({ error: err.message }); }
 });
 
-// ─── PUT /api/purchases/:id ───────────────────────────────────────────────────
 router.put('/:id', requirePermission('UPDATE'), async (req, res) => {
   try {
     const { id } = req.params;
-    const [cur] = await getPool().execute('SELECT * FROM compras WHERE id_compra = ?', [id]);
+    validateWhitelist(req.body, PURCHASE_WHITELIST);
+
+    const [cur] = await getPool().execute(`SELECT * FROM compras WHERE id_compra = ?`, [id]);
     if (!cur.length) return res.status(404).json({ error: 'Compra no encontrada' });
 
     const data = applyStateDates(req.body, cur[0]);
+    if (data.id_proyecto === null) {
+      return res.status(400).json({ error: 'El campo id_proyecto no puede ser nulo' });
+    }
+    const updates = [];
+    const values = [];
 
-    // Merge con datos actuales (PATCH-style)
-    const merged = { ...cur[0], ...data };
+    for (const key of Object.keys(data)) {
+      if (PURCHASE_WHITELIST.includes(key)) {
+        updates.push(`${key} = ?`);
+        values.push(data[key]);
+      }
+    }
 
-    await getPool().execute(
-      `UPDATE compras SET
-        id_tarea = ?, id_proyecto = ?, producto = ?, descripcion = ?, cantidad = ?,
-        valor_unitario = ?, valor_total = ?, id_solicitante = ?, id_responsable = ?,
-        estado = ?, dias_arribo = ?,
-        fecha_solicitud = ?, fecha_presupuesto_solic = ?, fecha_presupuesto_recib = ?,
-        fecha_oc_emitida = ?, fecha_comprometida = ?, fecha_entregado = ?,
-        fecha_arribo_estimada = ?, fecha_arribo_necesaria = ?,
-        notas = ?, links_facturas = ?
-       WHERE id_compra = ?`,
-      [
-        merged.id_tarea || null, merged.id_proyecto || null, merged.producto, merged.descripcion || null,
-        merged.cantidad, merged.valor_unitario, merged.valor_total,
-        merged.id_solicitante || null, merged.id_responsable || null,
-        merged.estado, merged.dias_arribo,
-        merged.fecha_solicitud || null, merged.fecha_presupuesto_solic || null,
-        merged.fecha_presupuesto_recib || null, merged.fecha_oc_emitida || null,
-        merged.fecha_comprometida || null, merged.fecha_entregado || null,
-        merged.fecha_arribo_estimada || null, merged.fecha_arribo_necesaria || null,
-        merged.notas || null, merged.links_facturas || null,
-        id
-      ]
-    );
+    if (updates.length > 0) {
+      await getPool().execute(`UPDATE compras SET ${updates.join(', ')} WHERE id_compra = ?`, [...values, id]);
+    }
 
     const [updated] = await getPool().execute(
-      SELECT_BASE + ' WHERE c.id_compra = ?', [id]
+      `SELECT ${SELECT_BLOCK} ${EXTRA_FIELDS} FROM compras c ${JOIN_PART} WHERE c.id_compra = ?`, [id]
     );
     res.json(updated[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(err.status || 500).json({ error: err.message }); }
 });
 
-// ─── DELETE /api/purchases/:id ────────────────────────────────────────────────
 router.delete('/:id', requirePermission('DELETE'), async (req, res) => {
   try {
-    const { id } = req.params;
-    const [cur] = await getPool().execute('SELECT id_compra FROM compras WHERE id_compra = ?', [id]);
+    const [cur] = await getPool().execute('SELECT id_compra FROM compras WHERE id_compra = ?', [req.params.id]);
     if (!cur.length) return res.status(404).json({ error: 'Compra no encontrada' });
-    await getPool().execute('DELETE FROM compras WHERE id_compra = ?', [id]);
+    await getPool().execute('DELETE FROM compras WHERE id_compra = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

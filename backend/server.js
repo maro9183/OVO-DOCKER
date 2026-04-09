@@ -20,21 +20,30 @@ const app = express();
 
 app.use(cors());
 
+app.use(express.json());
+app.use(morgan('dev')); // Logger estándar
+
 // 🔔 MIDDLEWARE DE LOGS DE ACTIVIDAD (PERSONALIZADO para Docker)
 app.use((req, res, next) => {
   const time = new Date().toLocaleTimeString();
   console.log(`[ACTIVITY] ${time} - ${req.method} ${req.url}`);
-  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+  if (req.body && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
     console.log(`   └─ Payload: ${JSON.stringify(req.body)}`);
   }
   next();
 });
 
-app.use(morgan('dev')); // Logger estándar
-app.use(express.json());
-
-// Sirve el frontend como archivos estáticos
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Sirve el frontend como archivos estáticos (charset=utf-8 explícito para emojis y tildes)
+app.use(express.static(path.join(__dirname, '../frontend'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    }
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+  }
+}));
 
 // API Routes
 app.use('/api/auth',        authRouter);

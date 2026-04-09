@@ -74,5 +74,29 @@ window.API = (() => {
     createPurchase:      (d)        => req('POST',   '/purchases', d),
     updatePurchase:      (id, d)    => req('PUT',    `/purchases/${id}`, d),
     deletePurchase:      (id)       => req('DELETE', `/purchases/${id}`),
+
+    createLink: async (link) => {
+      const targetTask = gantt.getTask(link.target);
+      const existing = (targetTask._dependencias || '').split(',').map(d => d.trim()).filter(Boolean);
+      if (!existing.includes(String(link.source))) {
+        existing.push(String(link.source));
+      }
+      targetTask._dependencias = existing.join(',');
+      const isPurchase = String(link.target).startsWith('pur_');
+      const cleanId = isPurchase ? String(link.target).replace('pur_', '') : link.target;
+      return isPurchase
+        ? window.API.updatePurchase(cleanId, { dependencias: existing.join(',') || null })
+        : window.API.updateTask(cleanId, { dependencias: existing.join(',') || null });
+    },
+    deleteLink: async (link) => {
+      const targetTask = gantt.getTask(link.target);
+      const existing = (targetTask._dependencias || '').split(',').map(d => d.trim()).filter(d => d && d !== String(link.source));
+      targetTask._dependencias = existing.join(',');
+      const isPurchase = String(link.target).startsWith('pur_');
+      const cleanId = isPurchase ? String(link.target).replace('pur_', '') : link.target;
+      return isPurchase
+        ? window.API.updatePurchase(cleanId, { dependencias: existing.join(',') || null })
+        : window.API.updateTask(cleanId, { dependencias: existing.join(',') || null });
+    }
   };
 })();

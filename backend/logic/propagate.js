@@ -7,11 +7,12 @@ const { calcFechaFin, calcEstado, formatDate, parseDate } = require('./dates');
  */
 async function detectCycle(conn, sourceId, newDepId) {
   const visited = new Set();
-  const queue   = [parseInt(newDepId)];
+  const queue   = [String(newDepId)];
+  const strSource = String(sourceId);
 
   while (queue.length > 0) {
     const current = queue.shift();
-    if (current === parseInt(sourceId)) return true;
+    if (current === strSource) return true;
     if (visited.has(current)) continue;
     visited.add(current);
 
@@ -19,7 +20,7 @@ async function detectCycle(conn, sourceId, newDepId) {
       'SELECT id_predecesora FROM dependencias WHERE id_tarea = ?', [current]
     );
     for (const row of rows) {
-      queue.push(row.id_predecesora);
+      queue.push(String(row.id_predecesora));
     }
   }
   return false;
@@ -44,7 +45,7 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
      JOIN dependencias d ON d.id_tarea = t.id_tarea
      LEFT JOIN compras c ON c.id_tarea = t.id_tarea
      WHERE d.id_predecesora = ?`,
-    [taskId]
+    [String(taskId)]
   );
 
   const affected = [];
@@ -52,11 +53,11 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
   for (const dep of dependents) {
     // Obtener todos los predecesores de esta tarea
     const [predRows] = await conn.execute(
-      `SELECT t.id_tarea, t.es_compra, t.fecha_fin_proyectada,
+      `SELECT d.id_predecesora, t.id_tarea, t.es_compra, t.fecha_fin_proyectada,
               c.fecha_arribo_necesaria, c.fecha_comprometida, c.fecha_entregado
-       FROM tareas t
-       LEFT JOIN compras c ON c.id_tarea = t.id_tarea
-       JOIN dependencias d ON d.id_predecesora = t.id_tarea
+       FROM dependencias d
+       LEFT JOIN tareas t ON d.id_predecesora = t.id_tarea
+       LEFT JOIN compras c ON d.id_predecesora = CONCAT('pur_', c.id_compra) OR t.id_tarea = c.id_tarea
        WHERE d.id_tarea = ?`,
       [dep.id_tarea]
     );
@@ -64,15 +65,15 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
     if (predRows.length === 0) continue;
 
     // La tarea dependiente inicia AL DÍA SIGUIENTE de la última predecesora proyectada
-    const maxFin = predRows.reduce((max, t) => {
+    const maxFin = predRows.reduce((max, row) => {
       let refDate;
-      if (t.es_compra) {
-        const d1 = parseDate(t.fecha_arribo_necesaria) || new Date(0);
-        const d2 = parseDate(t.fecha_comprometida) || new Date(0);
-        const d3 = parseDate(t.fecha_entregado) || new Date(0);
+      if (row.es_compra || !row.id_tarea) {
+        const d1 = parseDate(row.fecha_arribo_necesaria) || new Date(0);
+        const d2 = parseDate(row.fecha_comprometida) || new Date(0);
+        const d3 = parseDate(row.fecha_entregado) || new Date(0);
         refDate = new Date(Math.max(d1, d2, d3));
       } else {
-        refDate = parseDate(t.fecha_fin_proyectada) || new Date(0);
+        refDate = parseDate(row.fecha_fin_proyectada) || new Date(0);
       }
       return refDate > max ? refDate : max;
     }, new Date(0));

@@ -411,6 +411,9 @@
             <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-task-dropdown" style="justify-content:center;">
               ＋ Nueva Tarea
             </button>
+            <button class="btn btn-ghost btn-block btn-sm btn-pill" id="btn-new-purchase-dropdown" style="justify-content:center; border:1px solid var(--cyan); color:var(--cyan);">
+              ＋ Nueva Compra
+            </button>
             <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-project" style="justify-content:center;">
               ＋ Nuevo Proyecto
             </button>
@@ -955,88 +958,103 @@
   <div class="modal-overlay hidden" id="modal-purchase" style="z-index:120">
     <div class="modal-box modal-lg">
       <div class="modal-header">
-        <span class="modal-title">Editar Compra</span>
+        <span class="modal-title" id="modal-purchase-title">Editar Compra</span>
         <button class="modal-close" data-close-modal>×</button>
       </div>
       <div class="modal-body">
-        <form id="form-purchase">
+        <form id="form-purchase" autocomplete="off">
           <input type="hidden" id="field-pur-id">
+
+          <!-- Fila 1: Nombre + Estado -->
           <div class="form-grid">
             <div class="form-group col-span-2">
-              <label class="form-label" for="field-pur-producto">Producto / Servicio *</label>
-              <input class="form-control" id="field-pur-producto" type="text" required>
+              <label class="form-label" for="field-pur-producto">Nombre de la Compra <span style="color:var(--red)">*</span></label>
+              <input class="form-control" id="field-pur-producto" type="text" placeholder="Ej: Hierros 12mm, Servicio instalación..." required>
             </div>
-            
+
+            <!-- Estado: solo lectura, calculado automáticamente -->
             <div class="form-group">
-              <label class="form-label" for="field-pur-proyecto">Proyecto</label>
-              <select class="form-control" id="field-pur-proyecto">
+              <label class="form-label">Estado</label>
+              <div id="field-pur-estado-display" style="
+                display:flex; align-items:center; gap:8px;
+                padding:8px 12px; border-radius:var(--radius);
+                background:var(--surface); border:1px solid var(--border);
+                font-size:13px; font-weight:600; color:var(--cyan);
+              ">
+                <span id="field-pur-estado-icon">🟡</span>
+                <span id="field-pur-estado-label">Solicitada</span>
+              </div>
+              <input type="hidden" id="field-pur-estado" value="solicitada">
+            </div>
+
+            <!-- Notas -->
+            <div class="form-group">
+              <label class="form-label" for="field-pur-notas">Notas</label>
+              <textarea class="form-control" id="field-pur-notas" rows="2" placeholder="Especificaciones, marca, observaciones..."></textarea>
+            </div>
+          </div>
+
+          <!-- Fila 2: Proyecto + Solicitante -->
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="field-pur-proyecto">Proyecto <span style="color:var(--red)">*</span></label>
+              <select class="form-control" id="field-pur-proyecto" required>
                 <option value="">Seleccionar proyecto...</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="field-pur-tarea">Tarea Asociada</label>
-              <select class="form-control" id="field-pur-tarea">
-                <option value="">-- Sin tarea (Compra de obra) --</option>
+              <label class="form-label" for="field-pur-solicitante">Solicitante <span style="color:var(--red)">*</span></label>
+              <select class="form-control" id="field-pur-solicitante" required>
+                <option value="">Seleccionar solicitante...</option>
               </select>
             </div>
 
+            <!-- Cantidades y valores -->
             <div class="form-group">
-              <label class="form-label" for="field-pur-responsable">Responsable</label>
-              <select class="form-control" id="field-pur-responsable"></select>
+              <label class="form-label" for="field-pur-cantidad">Cantidad</label>
+              <input class="form-control" id="field-pur-cantidad" type="number" step="0.01" min="0" value="1">
             </div>
             <div class="form-group">
-              <label class="form-label" for="field-pur-solicitante">Solicitante</label>
-              <select class="form-control" id="field-pur-solicitante"></select>
+              <label class="form-label" for="field-pur-valor">Valor Unitario ($)</label>
+              <input class="form-control" id="field-pur-valor" type="number" step="0.01" min="0" value="0">
             </div>
+          </div>
 
-            <div class="form-group">
-              <label class="form-label" for="field-pur-estado">Estado</label>
-              <select class="form-control" id="field-pur-estado">
-                <option value="solicitada">Solicitada</option>
-                <option value="presupuestada">Presupuestada</option>
-                <option value="oc_emitida">OC Emitida</option>
-                <option value="entregado">Entregado</option>
-              </select>
-            </div>
-            <div class="form-group" id="group-pur-entregado" style="display:none">
-               <label class="form-label">Fecha Entrega Real</label>
-               <input class="form-control" id="field-pur-f-entregado" type="date">
-            </div>
+          <!-- Divisor Fechas -->
+          <div class="form-divider" style="grid-column:1/-1; margin:12px 0 8px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--border); padding-bottom:6px;">📅 Fechas y Plazos</div>
 
-            <div class="form-divider col-span-2">Fechas y Plazos</div>
+          <div class="form-grid">
             <div class="form-group">
-              <label class="form-label">Fecha Solicitud</label>
+              <label class="form-label" for="field-pur-f-solicitud">Fecha Solicitud</label>
               <input class="form-control" id="field-pur-f-solicitud" type="date">
             </div>
             <div class="form-group">
-              <label class="form-label">Arribo Necesario (obra)</label>
+              <label class="form-label" for="field-pur-f-arribo-nec">Arribo Necesario <span style="color:var(--red)">*</span></label>
               <input class="form-control" id="field-pur-f-arribo-nec" type="date">
             </div>
             <div class="form-group">
-              <label class="form-label">Fecha OC Emitida</label>
+              <label class="form-label" for="field-pur-f-oc">Fecha OC Emitida</label>
               <input class="form-control" id="field-pur-f-oc" type="date">
             </div>
-            <div class="form-group">
-              <label class="form-label">Fecha Comprometida (proveedor)</label>
+            <div class="form-group" id="group-pur-comprometida">
+              <label class="form-label" for="field-pur-f-comprometida">
+                Fecha Comprometida
+                <span id="lbl-comprometida-req" style="color:var(--red);display:none"> *</span>
+              </label>
               <input class="form-control" id="field-pur-f-comprometida" type="date">
             </div>
-
-            <div class="form-divider col-span-2">Costos</div>
             <div class="form-group">
-              <label class="form-label">Cantidad</label>
-              <input class="form-control" id="field-pur-cantidad" type="number" step="0.01" value="1">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Valor Unitario ($)</label>
-              <input class="form-control" id="field-pur-valor" type="number" step="0.01" value="0">
+              <label class="form-label" for="field-pur-f-entregado">Fecha Entregado</label>
+              <input class="form-control" id="field-pur-f-entregado" type="date">
             </div>
           </div>
+
         </form>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-danger btn-sm" id="btn-delete-purchase" style="margin-right:auto">🗑 Eliminar</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete-purchase" style="margin-right:auto;display:none">🗑 Eliminar</button>
         <button class="btn btn-ghost" data-close-modal>Cancelar</button>
-        <button class="btn btn-primary" id="btn-save-purchase">Guardar Cambios</button>
+        <button class="btn btn-primary" id="btn-save-purchase">✓ Guardar Compra</button>
       </div>
     </div>
   </div>
@@ -1314,20 +1332,6 @@
     </div>
   </div>
 
-            <label class="form-label" for="field-pur-links">Links de Facturas / Documentos <span style="font-size:10px;color:var(--text-dim)">(uno por línea)</span></label>
-            <textarea class="form-control" id="field-pur-links" rows="2" placeholder="https://…"></textarea>
-          </div>
-
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-danger btn-sm" id="btn-delete-purchase" style="display:none;margin-right:auto">🗑 Eliminar</button>
-        <button class="btn btn-ghost" data-close-modal>Cancelar</button>
-        <button class="btn btn-primary" id="btn-save-purchase">Guardar Compra</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ══════════════ MODAL: GRÁFICOS DE COMPRAS ══════════════ -->
   <div class="modal-overlay hidden" id="modal-charts" style="z-index:107">
     <div class="modal-box" style="max-width:900px;width:95vw">
@@ -1359,11 +1363,11 @@
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="/js/auth.js?v=8"></script>
-  <script src="/js/api.js?v=8"></script>
-  <script src="/js/gantt-init.js?v=8"></script>
-  <script src="/js/exports.js?v=8"></script>
-  <script src="/js/ui.js?v=8"></script>
+  <script src="/js/auth.js?v=11"></script>
+  <script src="/js/api.js?v=11"></script>
+  <script src="/js/gantt-init.js?v=11"></script>
+  <script src="/js/exports.js?v=11"></script>
+  <script src="/js/ui.js?v=11"></script>
 </body>
 
-</html>
+</html>

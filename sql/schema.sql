@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS tareas (
   fecha_iniciada          DATETIME,
   fecha_finalizada        DATETIME,
   tipo_dias               ENUM('calendario','laboral') DEFAULT 'calendario',
+  auto_retrasada          TINYINT(1) DEFAULT 0,
+  es_compra               TINYINT(1) DEFAULT 0,
   FOREIGN KEY (id_proyecto) REFERENCES proyectos(id_proyecto) ON DELETE CASCADE,
   FOREIGN KEY (id_parent)   REFERENCES tareas(id_tarea)       ON DELETE CASCADE,
   FOREIGN KEY (id_subresp)  REFERENCES subresponsables(id_subresp) ON DELETE SET NULL,
@@ -77,11 +79,10 @@ CREATE TABLE IF NOT EXISTS tareas (
 CREATE TABLE IF NOT EXISTS dependencias (
   id_dependencia INT AUTO_INCREMENT PRIMARY KEY,
   id_tarea       INT NOT NULL,
-  id_predecesora INT NOT NULL,
+  id_predecesora VARCHAR(50) NOT NULL,
   tipo           VARCHAR(10) DEFAULT 'FS',
   lag_dias       INT DEFAULT 0,
-  FOREIGN KEY (id_tarea)       REFERENCES tareas(id_tarea) ON DELETE CASCADE,
-  FOREIGN KEY (id_predecesora) REFERENCES tareas(id_tarea) ON DELETE CASCADE,
+  FOREIGN KEY (id_tarea) REFERENCES tareas(id_tarea) ON DELETE CASCADE,
   UNIQUE KEY uq_dep (id_tarea, id_predecesora)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -99,6 +100,7 @@ CREATE TABLE IF NOT EXISTS tarea_recursos (
 CREATE TABLE IF NOT EXISTS compras (
   id_compra               INT AUTO_INCREMENT PRIMARY KEY,
   id_tarea                INT DEFAULT NULL,
+  id_proyecto             INT DEFAULT NULL,
   producto                VARCHAR(255) NOT NULL,
   descripcion             TEXT,
   cantidad                INT DEFAULT 1,
@@ -117,9 +119,11 @@ CREATE TABLE IF NOT EXISTS compras (
   fecha_arribo_estimada   DATE DEFAULT NULL,
   fecha_arribo_necesaria  DATE DEFAULT NULL,
   notas                   TEXT,
+  dependencias            TEXT,
   links_facturas          TEXT,
   fecha_creacion          DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (id_tarea)       REFERENCES tareas(id_tarea)      ON DELETE SET NULL,
+  FOREIGN KEY (id_proyecto)    REFERENCES proyectos(id_proyecto) ON DELETE SET NULL,
   FOREIGN KEY (id_solicitante) REFERENCES responsables(id_resp)  ON DELETE SET NULL,
   FOREIGN KEY (id_responsable) REFERENCES responsables(id_resp)  ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
