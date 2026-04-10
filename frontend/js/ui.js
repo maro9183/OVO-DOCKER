@@ -1063,7 +1063,7 @@ window.UI = (() => {
       }
       
       // 4. Limpieza en Memoria (allTasks) - CRÍTICO para no revivir items en scroll/filtros
-      allTasks = allTasks.filter(t => (t.id || t.id_tarea) != taskId);
+      allTasks = allTasks.filter(t => String(t.id || t.id_tarea) !== String(taskId));
       
       console.log("[UI] Flujo completado. Cerrando modales.");
       closeTaskModal(); // Cierra modal de tarea

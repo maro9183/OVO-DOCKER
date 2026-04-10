@@ -334,13 +334,15 @@ window.GanttApp = (() => {
       </div>`;
     };
 
-    // ── Mapeado de Salida Centralizado (DataProcessor) ─────────────────────
-    // Semáforo de red: clave = "entity_id", valor = timestamp del inicio
-    const _savingIds = new Map();
-    const SAVE_TIMEOUT_MS = 8000; // Auto-liberar si la promesa muere en silencio
+    /* ── Registro Único de Eventos y DataProcessor (Pattern: Run-Once) ───── */
+    if (!_initialized) {
+      console.log("[GanttApp] Registrando eventos y DataProcessor por única vez...");
 
-    gantt.createDataProcessor((entity, action, data, id) => {
-      if (_ignoreUpdate) return Promise.resolve({ tid: id });
+      const _savingIds = new Map();
+      const SAVE_TIMEOUT_MS = 8000;
+
+      gantt.createDataProcessor((entity, action, data, id) => {
+        if (_ignoreUpdate) return Promise.resolve({ tid: id });
 
       // ── Semáforo anti-multi-fire ─────────────────────────────────
       const lockKey = `${entity}_${id}`;
@@ -626,10 +628,13 @@ window.GanttApp = (() => {
     gantt.attachEvent('onAfterProgressDrag', () => updateSummary());
 
     gantt.attachEvent('onBeforeTaskDelete', id => {
+      // Global Bypass: si está activado, autorizamos sin preguntas (usado por deleteTaskDirect)
+      if (window.__ganttBypassConfirm) return true;
+
       // Usamos el Set persistente definido al inicio del módulo
       if (_directDeleteIds.has(String(id))) {
         _directDeleteIds.delete(String(id));
-        return true; // Autorizado: el DP manejará la petición DELETE al backend
+        return true; 
       }
       // Botón delete del Gantt nativo → pedir confirmación via UI
       if (window.UI && window.UI.deleteTask) {
@@ -639,6 +644,7 @@ window.GanttApp = (() => {
     });
 
     _initialized = true;
+    } // Fin del bloque Run-Once
   }
 
   /* ── Helpers ─────────────────────────────────────────────── */
@@ -1452,10 +1458,11 @@ window.GanttApp = (() => {
     deleteTaskDirect: (id) => {
       console.log("[GanttApp] Deleting task direct (no confirm):", id);
       if (gantt.isTaskExists(id)) {
-        window.__ganttDirectDelete.add(String(id));
-        _ignoreUpdate = true; // Silenciamos el DataProcessor porque el UI ya hizo el DELETE manual
+        window.__ganttBypassConfirm = true; // Forzar bypass en todos los listeners
+        _ignoreUpdate = true;
         gantt.deleteTask(id);
         _ignoreUpdate = false;
+        window.__ganttBypassConfirm = false;
       }
     },
     // Actualiza visualmente una compra en el Gantt (post-save del modal) sin disparar el DP
