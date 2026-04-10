@@ -203,12 +203,46 @@ router.put('/:id', requirePermission('UPDATE'), async (req, res) => {
 });
 
 router.delete('/:id', requirePermission('DELETE'), async (req, res) => {
+  const { id } = req.params;
+  const pool = getPool();
+  const conn = await pool.getConnection();
   try {
-    const [cur] = await getPool().execute('SELECT id_compra FROM compras WHERE id_compra = ?', [req.params.id]);
-    if (!cur.length) return res.status(404).json({ error: 'Compra no encontrada' });
-    await getPool().execute('DELETE FROM compras WHERE id_compra = ?', [req.params.id]);
+    // 1. Verificación de Integridad Referencial (Dependencias en Tareas)
+    // Buscamos si el ID de esta compra (con prefijo pur_) existe en el campo 'dependencias' de cualquier tarea
+    const purIdPrefix = `pur_${id}`;
+    const [dependents] = await conn.execute(
+      'SELECT id_tarea, tarea FROM tareas WHERE FIND_IN_SET(?, dependencias) > 0',
+      [purIdPrefix]
+    );
+
+    if (dependents.length > 0) {
+      const names = dependents.map(d => `"${d.tarea}"`).join(', ');
+      return res.status(400).json({ 
+        error: `No se puede eliminar: Existen tareas (${names}) que dependen de esta compra. Elimine las dependencias primero.` 
+      });
+    }
+
+    await conn.beginTransaction();
+
+    // 2. Verificación de existencia
+    const [cur] = await conn.execute('SELECT id_compra FROM compras WHERE id_compra = ?', [id]);
+    if (!cur.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Compra no encontrada' });
+    }
+
+    // 3. Eliminación física
+    await conn.execute('DELETE FROM compras WHERE id_compra = ?', [id]);
+    
+    await conn.commit();
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    await conn.rollback(); 
+    console.error('[DELETE PURCHASE] Error:', err);
+    res.status(500).json({ error: err.message }); 
+  } finally { 
+    conn.release(); 
+  }
 });
 
 module.exports = router;

@@ -8,11 +8,17 @@ window.GanttApp = (() => {
   let _ignoreUpdate = false; // evita loop en actualizaciones programáticas
   let _allProjectsMode = false;
   let _projectsMap = {}; // id_proyecto -> { nombre, codigo, color }
+  let _initialized = false; // Guard para adjuntar eventos solo una vez
+
+  // Pre-autorización de deletes programáticos (establece persistencia fuera de configure)
+  const _directDeleteIds = new Set();
+  window.__ganttDirectDelete = _directDeleteIds;
 
   let _colorMode = 'project';
   const _responsableColors = {};
   const _palette = ['#e11d48', '#d946ef', '#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#14b8a6', '#10b981', '#22c55e', '#f59e0b', '#f97316'];
   let _paletteIdx = 0;
+  let _activeMarkers = []; // Track marker IDs for cleanup
 
   function getColorMode() { return _colorMode; }
   function setColorMode(mode) { _colorMode = mode; }
@@ -113,7 +119,7 @@ window.GanttApp = (() => {
     gantt.plugins({ tooltip: true, marker: true });
 
     gantt.config.date_format  = '%Y-%m-%d';
-    gantt.config.xml_date     = '%Y-%m-%d';
+    gantt.config.xml_date     = '%Y-%m-%d %H:%i';
     gantt.config.duration_unit = 'day';
     gantt.config.duration_step = 1;
     gantt.config.scale_height  = 50; // Más espacio para mes y días
@@ -152,7 +158,7 @@ window.GanttApp = (() => {
     /* ── Columns ──────────────────────────────────────────── */
     gantt.config.columns = [
       {
-        name: 'text', label: 'Tarea', tree: true, width: isMobile ? 180 : 250,
+        name: 'text', label: 'Tarea', tree: true, width: '*',
         template: t => {
           const today = new Date(); today.setHours(0,0,0,0);
           const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
@@ -334,7 +340,7 @@ window.GanttApp = (() => {
     const SAVE_TIMEOUT_MS = 8000; // Auto-liberar si la promesa muere en silencio
 
     gantt.createDataProcessor((entity, action, data, id) => {
-      if (_ignoreUpdate) return;
+      if (_ignoreUpdate) return Promise.resolve({ tid: id });
 
       // ── Semáforo anti-multi-fire ─────────────────────────────────
       const lockKey = `${entity}_${id}`;
@@ -442,25 +448,43 @@ window.GanttApp = (() => {
       } else {
         // ── 3. Tareas de Obra ────────────────────────────────────
         if (action === 'update') {
-          let realDur = 0;
-          let curr = new Date(taskObj.start_date);
-          const end = new Date(taskObj.end_date);
-          while (curr < end) {
-            if (taskObj._tipo_dias !== 'laboral' || curr.getDay() !== 0) realDur++;
-            curr.setDate(curr.getDate() + 1);
-          }
           const taskPayload = {
-            ...data,
-            id_proyecto:   finalProjectId,
+            tarea:         taskObj.text,
             fecha_inicio:  fmt(taskObj.start_date),
-            duracion_dias: Math.max(1, realDur),
-            avance:        Math.round((taskObj.progress || 0) * 100)
+            duration:      parseInt(taskObj.duration) || 1,
+            avance:        Math.round((taskObj.progress || 0) * 100),
+            id_proyecto:   finalProjectId,
+            id_parent:     (taskObj.parent === 0 || taskObj.parent === "0" || taskObj.parent === "") ? null : taskObj.parent
           };
+          
+          // Preservar llaves personalizadas del objeto taskObj
+          // pero NUNCA las que empiecen con _ (las borramos) ni las nativas de DHTMLX
+          const dhtmlxKeys = new Set(['text', 'start_date', 'duration', 'progress', 'parent', 'end_date', 'id', '$no_start', '$no_end']);
+          Object.keys(data).forEach(k => {
+            if (!dhtmlxKeys.has(k) && !k.startsWith('$') && !k.startsWith('_') && !taskPayload.hasOwnProperty(k)) {
+              taskPayload[k] = data[k];
+            }
+          });
+
+          // Mapear campos _estado/_tipo_dias del objeto gantt a columnas reales de la DB
+          if (taskObj._estado  !== undefined) taskPayload.estado    = taskObj._estado;
+          if (taskObj._tipo_dias !== undefined) taskPayload.tipo_dias = taskObj._tipo_dias;
+
+          // Guardia final: solo enviar campos que el backend acepta (espejo del UPDATE_WHITELIST)
+          const BACKEND_WHITELIST = new Set([
+            'id_proyecto','id_parent','id_subresp','id_resp','tarea','descripcion',
+            'fecha_inicio','fecha_fin','fecha_inicio_proyectada','fecha_fin_proyectada',
+            'fecha_real_iniciada','duration','fecha_completada','estado','responsable',
+            'avance','dependencias','costo_tarea','notificado','recursos','tipo_dias',
+            'auto_retrasada','es_compra','compraData'
+          ]);
+          Object.keys(taskPayload).forEach(k => { if (!BACKEND_WHITELIST.has(k)) delete taskPayload[k]; });
+
           return API.updateTask(cleanId, taskPayload)
             .then(r => {
               releaseLock();
               _ignoreUpdate = true;
-              applyUpdatedTasks(r.updatedTasks, id);
+              applyUpdatedTasks(r.updatedTasks, id); // Pasamos 'id' como el skipId para evitar el bucle
               _ignoreUpdate = false;
               updateSummary();
               return { tid: id };
@@ -473,13 +497,47 @@ window.GanttApp = (() => {
             .catch(e => { releaseLock(); throw e; });
         }
         if (action === 'create') {
-          return API.createTask({ ...data, id_proyecto: finalProjectId })
+          const taskPayload = {
+            tarea:         taskObj.text,
+            fecha_inicio:  fmt(taskObj.start_date),
+            duration:      taskObj.duration || 1,
+            avance:        Math.round((taskObj.progress || 0) * 100),
+            id_proyecto:   finalProjectId,
+            id_parent:     (taskObj.parent === 0 || taskObj.parent === "0" || taskObj.parent === "") ? null : taskObj.parent
+          };
+
+          // Preservar llaves personalizadas del objeto taskObj (como estado, tipo_dias)
+          // pero NUNCA las que empiecen con _ (las borramos) ni las nativas de DHTMLX
+          const dhtmlxKeys = new Set(['text', 'start_date', 'duration', 'progress', 'parent', 'end_date', 'id', '$no_start', '$no_end']);
+          const extraFromObj = {};
+          Object.keys(taskObj).forEach(k => {
+            if (!dhtmlxKeys.has(k) && !k.startsWith('$') && !k.startsWith('_') && !taskPayload.hasOwnProperty(k)) {
+              extraFromObj[k] = taskObj[k];
+            }
+          });
+          // Mapear campos _estado/_tipo_dias del objeto gantt a columnas reales de la DB
+          if (taskObj._estado  !== undefined) extraFromObj.estado    = taskObj._estado;
+          if (taskObj._tipo_dias !== undefined) extraFromObj.tipo_dias = taskObj._tipo_dias;
+
+          Object.assign(taskPayload, extraFromObj);
+
+          // Guardia final: solo enviar campos que el backend acepta (espejo del UPDATE_WHITELIST)
+          const BACKEND_WHITELIST = new Set([
+            'id_proyecto','id_parent','id_subresp','id_resp','tarea','descripcion',
+            'fecha_inicio','fecha_fin','fecha_inicio_proyectada','fecha_fin_proyectada',
+            'fecha_real_iniciada','duration','fecha_completada','estado','responsable',
+            'avance','dependencias','costo_tarea','notificado','recursos','tipo_dias',
+            'auto_retrasada','es_compra','compraData'
+          ]);
+          Object.keys(taskPayload).forEach(k => { if (!BACKEND_WHITELIST.has(k)) delete taskPayload[k]; });
+
+          return API.createTask(taskPayload)
             .then(r => {
               releaseLock();
               UI.toast('Tarea creada', 'success');
               return { tid: r.task.id_tarea || r.task.id };
             })
-            .catch(e => { releaseLock(); throw e; });
+            .catch(e => { releaseLock(); UI.toast('Error al crear tarea: ' + (e.message || ''), 'error'); throw e; });
         }
       }
 
@@ -567,19 +625,20 @@ window.GanttApp = (() => {
 
     gantt.attachEvent('onAfterProgressDrag', () => updateSummary());
 
-    // Pre-autorización de deletes programáticos (desde modales, no desde botón Gantt)
-    const _directDeleteIds = new Set();
-    window.__ganttDirectDelete = _directDeleteIds; // expuesto para ui.js
-
     gantt.attachEvent('onBeforeTaskDelete', id => {
+      // Usamos el Set persistente definido al inicio del módulo
       if (_directDeleteIds.has(String(id))) {
         _directDeleteIds.delete(String(id));
         return true; // Autorizado: el DP manejará la petición DELETE al backend
       }
-      // Botón delete del Gantt nativo → pedir confirmación
-      UI.confirmDelete(id);
+      // Botón delete del Gantt nativo → pedir confirmación via UI
+      if (window.UI && window.UI.deleteTask) {
+        window.UI.deleteTask(id);
+      }
       return false;
     });
+
+    _initialized = true;
   }
 
   /* ── Helpers ─────────────────────────────────────────────── */
@@ -643,9 +702,9 @@ window.GanttApp = (() => {
     }
     
     // El Gantt visual principal se basa en la fecha proyectada (si existe) 
-    // o en la fecha de inicio baseline.
-    let startStr = t.fecha_inicio_proyectada || t.fecha_inicio;
-    let endStr   = undefined;
+    // o en la fecha de inicio baseline. Preferimos lo que ya venga mapeado.
+    let startStr = t.start_date || t.fecha_inicio_proyectada || t.fecha_inicio;
+    let endStr   = t.end_date || undefined;
     const finRef = t.fecha_fin_proyectada || t.fecha_fin;
 
     if (t.es_compra === 1) {
@@ -681,13 +740,13 @@ window.GanttApp = (() => {
     const gTextColor = isPurchase ? '#ffffff' : (t.es_compra ? 'var(--cyan)' : (finalColor === '#ffffff' ? '#0f172a' : undefined));
 
     return {
-      id:           t.id_tarea,
-      parent:       t.id_parent || 0,
-      text:         t.descripcion || "Tarea sin nombre",
+      id:           t.id || t.id_tarea,
+      parent:       t.id_parent || t.parent || 0,
+      text:         t.descripcion || t.tarea || "Tarea",
       start_date:   startStr,
       end_date:     endStr,
-      duration:     endStr ? undefined : (t.es_compra ? 3 : (parseInt(t.duracion_dias) || 1)),
-      progress:     parseFloat(t.avance || 0) / 100,
+      duration:     endStr ? undefined : (t.es_compra ? 3 : (parseInt(t.duration) || 1)),
+      progress:     t.progress !== undefined ? parseFloat(t.progress) : (parseFloat(t.avance || 0) / 100),
       color:        gColor,
       textColor:    gTextColor,
       _tarea_cod:   t.tarea,
@@ -727,13 +786,16 @@ window.GanttApp = (() => {
     const links = [];
     const seen  = new Set();
     tasks.forEach(t => {
-      if (!t.dependencias) return;
+      // Usar t.id si existe (mapeado), si no t.id_tarea (crudo)
+      const targetId = t.id || t.id_tarea;
+      if (!t.dependencias || !targetId) return;
+
       t.dependencias.split(',').map(d => d.trim()).filter(Boolean).forEach(src => {
         const srcId = String(src).startsWith('pur_') ? src : parseInt(src);
-        const key = `${srcId}_${t.id_tarea}`;
+        const key = `${srcId}_${targetId}`;
         if (!seen.has(key)) {
           seen.add(key);
-          links.push({ id: key, source: srcId, target: t.id_tarea, type: '0' });
+          links.push({ id: key, source: srcId, target: targetId, type: '0' });
         }
       });
     });
@@ -741,61 +803,72 @@ window.GanttApp = (() => {
   }
 
   function applyUpdatedTasks(updatedTasks, skipId = null) {
-    if (!updatedTasks) return;
+    if (!updatedTasks || updatedTasks.length === 0) return;
     _ignoreUpdate = true;
-    updatedTasks.forEach(t => {
-      // Intentar encontrar la tarea, ya sea por ID numérico o con prefijo pur_
-      let targetId = t.id_tarea;
-      if (!gantt.isTaskExists(targetId) && gantt.isTaskExists(`pur_${targetId}`)) {
-        targetId = `pur_${targetId}`;
-      }
-
-      if (!gantt.isTaskExists(targetId)) return;
-      const gt = gantt.getTask(targetId);
-      
-      const start = t.fecha_inicio_proyectada || t.fecha_inicio;
-      const fin = t.fecha_fin_proyectada || t.fecha_fin;
-      
-      // Actualizar posición visual si no es la tarea que se está arrastrando
-      if (skipId != targetId) {
-        gt.start_date = gantt.date.parseDate(start, 'xml_date');
-        if (fin) {
-          const end = new Date(fin + 'T00:00:00');
-          end.setDate(end.getDate() + 1);
-          gt.end_date = end;
-        } else {
-          gt.duration = parseInt(t.duracion_dias) || 1;
+    
+    // Usar batchUpdate para atomicidad y evitar múltiples renders
+    gantt.batchUpdate(() => {
+      updatedTasks.forEach(t => {
+        // Intentar encontrar la tarea, ya sea por ID numérico o con prefijo pur_
+        let targetId = t.id_tarea;
+        if (!gantt.isTaskExists(targetId) && gantt.isTaskExists(`pur_${targetId}`)) {
+          targetId = `pur_${targetId}`;
         }
-      }
-
-      gt.progress     = parseFloat(t.avance || 0) / 100;
-      gt._estado      = t.estado;
-      gt._tipo_dias   = t.tipo_dias;
-      gt._dependencias = t.dependencias || '';
-      gt._es_compra   = t.es_compra || 0;
-      
-      // Actualizar meta-fechas para capas
-      gt._f_inicio_base = t.fecha_inicio;
-      gt._f_fin_base    = t.fecha_fin;
-      gt._f_inicio_proy = t.fecha_inicio_proyectada;
-      gt._f_fin_proy    = t.fecha_fin_proyectada;
-      gt._f_real_ini    = t.fecha_real_iniciada;
-      gt._f_real_fin    = t.fecha_completada;
-      gt._auto_retrasada = t.auto_retrasada || 0;
-      
-      // Si es una compra, actualizar también el objeto interno _compra
-      if (gt._es_compra && t.compraData) {
-        gt._compra = {
-          ...gt._compra,
-          ...t.compraData,
-          f_solicitud: t.fecha_solicitud || t.compraData.fecha_solicitud,
-          f_arribo_nec: t.fecha_arribo_necesaria || t.compraData.fecha_arribo_necesaria
-        };
-      }
-
-      gt._raw = t;
-      gantt.updateTask(targetId);
+  
+        if (!gantt.isTaskExists(targetId)) return;
+        const gt = gantt.getTask(targetId);
+        
+        const start = t.fecha_inicio_proyectada || t.fecha_inicio;
+        const fin = t.fecha_fin_proyectada || t.fecha_fin;
+        
+        // Actualizar posición visual si no es la tarea que se está arrastrando/guardando en este hilo
+        if (skipId != targetId) {
+          gt.start_date = gantt.date.parseDate(start, 'xml_date');
+          if (fin) {
+            const end = new Date(fin + 'T00:00:00');
+            end.setDate(end.getDate() + 1);
+            gt.end_date = end;
+          } else {
+            gt.duration = parseInt(t.duration) || 1;
+            // SI cambiamos duración manualmente, conviene limpiar end_date para que DHTMLX recalcule
+            delete gt.end_date;
+          }
+        }
+  
+        gt.progress     = parseFloat(t.avance || 0) / 100;
+        gt._estado      = t.estado;
+        gt._tipo_dias   = t.tipo_dias;
+        gt._dependencias = t.dependencias || '';
+        gt._es_compra   = t.es_compra || 0;
+        
+        // Actualizar meta-fechas para capas
+        gt._f_inicio_base = t.fecha_inicio;
+        gt._f_fin_base    = t.fecha_fin;
+        gt._f_inicio_proy = t.fecha_inicio_proyectada;
+        gt._f_fin_proy    = t.fecha_fin_proyectada;
+        gt._f_real_ini    = t.fecha_real_iniciada;
+        gt._f_real_fin    = t.fecha_completada;
+        gt._auto_retrasada = t.auto_retrasada || 0;
+        
+        // Si es una compra, actualizar también el objeto interno _compra
+        if (gt._es_compra && t.compraData) {
+          gt._compra = {
+            ...gt._compra,
+            ...t.compraData,
+            f_solicitud: t.fecha_solicitud || t.compraData.fecha_solicitud,
+            f_arribo_nec: t.fecha_arribo_necesaria || t.compraData.fecha_arribo_necesaria
+          };
+        }
+  
+        gt._raw = t;
+  
+        // SOLO disparamos updateTask si NO es la tarea de la transacción activa (evita el loop)
+        if (targetId != skipId) {
+          gantt.updateTask(targetId);
+        }
+      });
     });
+
     _ignoreUpdate = false;
     updateSummary();
   }
@@ -1095,33 +1168,43 @@ window.GanttApp = (() => {
 
   /* ── Markers helper ───── */
   function addMarkers(startDate = null, endDate = null) {
+    // 1. Limpiar marcadores previos para evitar acumulación (la causa de la línea blanca "gruesa")
+    if (_activeMarkers && _activeMarkers.length > 0) {
+      _activeMarkers.forEach(id => {
+        if (gantt.getMarker && gantt.getMarker(id)) gantt.deleteMarker(id);
+      });
+      _activeMarkers = [];
+    }
+
     const today = new Date();
-    gantt.addMarker({
+    const mToday = gantt.addMarker({
       start_date: today,
       css: 'today-marker',
       text: 'Hoy',
       title: 'Hoy: ' + today.toLocaleDateString('es')
     });
+    _activeMarkers.push(mToday);
 
     if (startDate) {
-      gantt.addMarker({
+      const mStart = gantt.addMarker({
         start_date: startDate,
         css: 'project-start-marker',
         text: 'INICIO',
         title: 'Inicia: ' + startDate.toLocaleDateString('es')
       });
+      _activeMarkers.push(mStart);
     }
 
     if (endDate) {
-      // Adjusted end date (visual fix)
       const d = new Date(endDate);
       d.setDate(d.getDate() - 1);
-      gantt.addMarker({
+      const mEnd = gantt.addMarker({
         start_date: d,
         css: 'project-end-marker',
         text: 'FIN',
         title: 'Finaliza: ' + d.toLocaleDateString('es')
       });
+      _activeMarkers.push(mEnd);
     }
   }
 
@@ -1367,9 +1450,12 @@ window.GanttApp = (() => {
     getAllTasks: () => gantt.getTaskByTime(),
     // Elimina una tarea sin pasar por confirm dialog (ya fue confirmado en el modal)
     deleteTaskDirect: (id) => {
+      console.log("[GanttApp] Deleting task direct (no confirm):", id);
       if (gantt.isTaskExists(id)) {
         window.__ganttDirectDelete.add(String(id));
+        _ignoreUpdate = true; // Silenciamos el DataProcessor porque el UI ya hizo el DELETE manual
         gantt.deleteTask(id);
+        _ignoreUpdate = false;
       }
     },
     // Actualiza visualmente una compra en el Gantt (post-save del modal) sin disparar el DP

@@ -19,15 +19,19 @@
     /* ═ Gantt dark theme overrides ═ */
 
     /* Contenedor principal del Gantt */
-    .gantt_container, .gantt_grid, .gantt_task,
-    .gantt_grid_scale, .gantt_task_scale  {
+    .gantt_container,
+    .gantt_grid,
+    .gantt_task,
+    .gantt_grid_scale,
+    .gantt_task_scale {
       background: #1e1e2f !important;
       color: #e2e5f0 !important;
       border-color: #3a3a55 !important;
     }
 
     /* Encabezados de escala (días, semanas, meses) */
-    .gantt_scale_cell, .gantt_grid_head_cell {
+    .gantt_scale_cell,
+    .gantt_grid_head_cell {
       background: #222233 !important;
       color: #e2e5f0 !important;
       border-color: #3a3a55 !important;
@@ -36,15 +40,19 @@
     }
 
     /* Sábados y domingos con tono distinto */
-    .gantt_scale_cell.weekend, .gantt_task_cell.weekend {
+    .gantt_scale_cell.weekend,
+    .gantt_task_cell.weekend {
       background: #1a1a30 !important;
     }
-    .gantt_scale_cell.saturday, .gantt_task_cell.saturday {
+
+    .gantt_scale_cell.saturday,
+    .gantt_task_cell.saturday {
       background: #1e1e35 !important;
     }
 
     /* Filas de tareas */
-    .gantt_row, .gantt_row.gantt_row_task {
+    .gantt_row,
+    .gantt_row.gantt_row_task {
       background: #1e1e2f !important;
       border-color: #3a3a55 !important;
       color: #e2e5f0 !important;
@@ -57,12 +65,14 @@
       border-radius: 4px;
       z-index: 1;
     }
+
     .layer-proyectada {
       background-color: rgba(99, 102, 241, 0.2) !important;
       border: 1px solid rgba(99, 102, 241, 0.4) !important;
       border-radius: 4px;
       z-index: 2;
     }
+
     .layer-real {
       background-color: var(--green) !important;
       opacity: 0.6;
@@ -75,12 +85,21 @@
       position: absolute;
       height: 100%;
       top: 0;
-      border-right: 1px solid rgba(255,255,255,0.1);
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .purchase-req-arr { background: rgba(34, 211, 238, 0.3); } /* Solicitud -> Arribo */
-    .purchase-oc-comp { background: rgba(245, 158, 11, 0.3); } /* OC -> Comprometida */
-    .purchase-delivered { 
-      background: var(--green) !important; 
+
+    .purchase-req-arr {
+      background: rgba(34, 211, 238, 0.3);
+    }
+
+    /* Solicitud -> Arribo */
+    .purchase-oc-comp {
+      background: rgba(245, 158, 11, 0.3);
+    }
+
+    /* OC -> Comprometida */
+    .purchase-delivered {
+      background: var(--green) !important;
       box-shadow: 0 0 8px var(--green);
       opacity: 0.5;
     }
@@ -104,9 +123,9 @@
 
     /* ══ Task Layers (Baseline & Real) ══ */
     .gantt_task_line {
-      overflow: visible !important; 
+      overflow: visible !important;
     }
-    
+
     /* Clase para ocultar contenedor en compras */
     .gantt_task_line.purchase-task {
       background: transparent !important;
@@ -114,25 +133,36 @@
       box-shadow: none !important;
     }
 
-    .layer-baseline, .layer-real, .purchase-segment, .purchase-milestone-marker {
-      z-index: 1 !important; 
+    .layer-baseline,
+    .layer-real,
+    .purchase-segment,
+    .purchase-milestone-marker {
+      z-index: 1 !important;
       border-radius: 4px;
       pointer-events: none;
     }
-    .layer-baseline { background: rgba(0,0,0,0.15); }
-    .layer-real { background: var(--indigo, #6366f1); opacity: 0.6; }
+
+    .layer-baseline {
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .layer-real {
+      background: var(--indigo, #6366f1);
+      opacity: 0.6;
+    }
 
     /* Asegurar visibilidad del texto sobre las capas */
-    .task-bar-label, .task-bar-resp {
+    .task-bar-label,
+    .task-bar-resp {
       position: relative;
       z-index: 2 !important;
-      text-shadow: 0px 1px 2px rgba(0,0,0,0.8);
+      text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.8);
     }
 
     /* Aumentar contraste de la barra de progreso interno (Avance) */
     .gantt_task_progress {
-      background-color: rgba(0, 0, 0, 0.45) !important; 
-      border-top: 2px solid rgba(255, 255, 255, 0.6) !important; 
+      background-color: rgba(0, 0, 0, 0.45) !important;
+      border-top: 2px solid rgba(255, 255, 255, 0.6) !important;
       border-radius: 4px;
       backdrop-filter: brightness(0.8);
     }
@@ -161,18 +191,20 @@
 
     .task-timeline-divider {
       position: absolute;
-      top: -2px; /* Sobresale un poco por arriba */
-      bottom: -2px; /* Sobresale un poco por abajo */
+      top: -2px;
+      /* Sobresale un poco por arriba */
+      bottom: -2px;
+      /* Sobresale un poco por abajo */
       width: 2px;
       z-index: 3 !important;
-      box-shadow: 0 0 3px rgba(0,0,0,0.5);
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
       cursor: help;
     }
 
     /* Ocultar las capas apiladas viejas para tareas normales si el usuario prefiere solo las divisorias */
     .gantt_task_line:not(.purchase-task) .layer-baseline,
     .gantt_task_line:not(.purchase-task) .layer-real {
-      display: none !important; 
+      display: none !important;
     }
 
     /* ══ Auto-Delayed Task Style ══ */
@@ -183,12 +215,15 @@
     }
 
 
-    .gantt_row:hover, .gantt_row.gantt_row_task:hover {
+    .gantt_row:hover,
+    .gantt_row.gantt_row_task:hover {
       background: #252538 !important;
     }
+
     .gantt_row.odd {
       background: #222233 !important;
     }
+
     .gantt_row.odd:hover {
       background: #272742 !important;
     }
@@ -206,6 +241,7 @@
       border: none !important;
       color: #fff !important;
     }
+
     /* Texto dentro de la barra siempre blanco */
     .gantt_task_line .gantt_task_content {
       color: #fff !important;
@@ -216,22 +252,23 @@
 
     /* Línea de progreso dentro de la barra */
     .gantt_task_progress {
-      background: rgba(0,0,0,0.25) !important;
+      background: rgba(0, 0, 0, 0.25) !important;
     }
 
     /* Marcador HOY (Cian Brillante) */
     .today-marker {
-      background-color: rgba(6, 182, 212, 0.9) !important; 
+      background-color: rgba(6, 182, 212, 0.9) !important;
       box-shadow: 0 0 10px 2px rgba(6, 182, 212, 0.6) !important;
       z-index: 5 !important;
     }
+
     .today-marker .gantt_marker_content {
       background: #06b6d4 !important;
       color: #000 !important;
       font-weight: 800 !important;
       border-radius: 4px;
       padding: 2px 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
     }
 
     /* Marcador INICIO (Verde Brillante) */
@@ -240,13 +277,14 @@
       box-shadow: 0 0 10px 2px rgba(34, 197, 94, 0.6) !important;
       z-index: 5 !important;
     }
+
     .project-start-marker .gantt_marker_content {
       background: #22c55e !important;
       color: #fff !important;
       font-weight: 800 !important;
       border-radius: 4px;
       padding: 2px 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
     }
 
     /* Marcador FIN (Rojo Brillante) */
@@ -255,13 +293,14 @@
       box-shadow: 0 0 10px 2px rgba(239, 68, 68, 0.6) !important;
       z-index: 5 !important;
     }
+
     .project-end-marker .gantt_marker_content {
       background: #ef4444 !important;
       color: #fff !important;
       font-weight: 800 !important;
       border-radius: 4px;
       padding: 2px 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
     }
 
     /* Líneas de dependencia */
@@ -274,7 +313,7 @@
       background: #2a2a3f !important;
       color: #e2e5f0 !important;
       border: 1px solid #3a3a55 !important;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
       border-radius: 8px !important;
       padding: 8px 12px !important;
       font-size: 12px !important;
@@ -286,7 +325,8 @@
     }
 
     /* Scrollbar del área de gantt */
-    .gantt_ver_scroll, .gantt_hor_scroll {
+    .gantt_ver_scroll,
+    .gantt_hor_scroll {
       background: #222233 !important;
     }
 
@@ -302,23 +342,38 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
     .task-bar-resp {
       background: #ffffff30;
       border-radius: 50%;
-      width: 18px; height: 18px;
+      width: 18px;
+      height: 18px;
       display: inline-flex;
-      align-items: center; justify-content: center;
-      font-size: 9px; font-weight: 700;
-      flex-shrink: 0; margin-left: 4px;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-left: 4px;
     }
-    .task-done { opacity: 0.75; }
-    .gantt_link_arrow_right { border-left-color:  #8b8fa8 !important; }
-    .gantt_link_arrow_left  { border-right-color: #8b8fa8 !important; }
+
+    .task-done {
+      opacity: 0.75;
+    }
+
+    .gantt_link_arrow_right {
+      border-left-color: #8b8fa8 !important;
+    }
+
+    .gantt_link_arrow_left {
+      border-right-color: #8b8fa8 !important;
+    }
 
     /* ── Export dropdown ─────────────────────────────── */
     .export-wrapper {
       position: relative;
     }
+
     .export-menu {
       position: absolute;
       top: calc(100% + 6px);
@@ -335,11 +390,13 @@
       transition: all 0.2s ease;
       overflow: hidden;
     }
+
     .export-menu.open {
       opacity: 1;
       visibility: visible;
       transform: translateY(0);
     }
+
     .export-menu-item {
       display: flex;
       align-items: center;
@@ -355,9 +412,11 @@
       font-family: inherit;
       text-align: left;
     }
+
     .export-menu-item:hover {
       background: var(--surface);
     }
+
     .export-menu-item .emi-icon {
       width: 28px;
       height: 28px;
@@ -368,18 +427,22 @@
       font-size: 14px;
       flex-shrink: 0;
     }
+
     .export-menu-item .emi-detail {
       display: flex;
       flex-direction: column;
     }
+
     .export-menu-item .emi-label {
       font-weight: 500;
     }
+
     .export-menu-item .emi-desc {
       font-size: 10px;
       color: var(--text-muted);
       margin-top: 1px;
     }
+
     .export-menu-divider {
       height: 1px;
       background: var(--border);
@@ -407,14 +470,18 @@
           <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-dropdown">
             ＋ Nuevo ▼
           </button>
-          <div class="new-dropdown-menu" id="new-dropdown-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--card); border:1px solid var(--indigo); border-radius:var(--radius); box-shadow:var(--shadow-lg); z-index:500; overflow:hidden; flex-direction:column; gap:4px; padding:6px;">
-            <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-task-dropdown" style="justify-content:center;">
+          <div class="new-dropdown-menu" id="new-dropdown-menu"
+            style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--card); border:1px solid var(--indigo); border-radius:var(--radius); box-shadow:var(--shadow-lg); z-index:500; overflow:hidden; flex-direction:column; gap:4px; padding:6px;">
+            <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-task-dropdown"
+              style="justify-content:center;">
               ＋ Nueva Tarea
             </button>
-            <button class="btn btn-ghost btn-block btn-sm btn-pill" id="btn-new-purchase-dropdown" style="justify-content:center; border:1px solid var(--cyan); color:var(--cyan);">
+            <button class="btn btn-ghost btn-block btn-sm btn-pill" id="btn-new-purchase-dropdown"
+              style="justify-content:center; border:1px solid var(--cyan); color:var(--cyan);">
               ＋ Nueva Compra
             </button>
-            <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-project" style="justify-content:center;">
+            <button class="btn btn-primary btn-block btn-sm btn-pill" id="btn-new-project"
+              style="justify-content:center;">
               ＋ Nuevo Proyecto
             </button>
           </div>
@@ -427,19 +494,28 @@
       </div>
 
       <div class="sidebar-footer" style="border-top:1px solid var(--border); padding: 16px 12px;">
-        <div id="sidebar-user-info" class="user-card" style="background:var(--card); border:1px solid var(--border-light); border-radius:var(--radius); padding:12px; margin-bottom:12px; display:flex; align-items:center; gap:10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-          <div style="width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg, var(--indigo), var(--cyan)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px; flex-shrink:0;">👤</div>
+        <div id="sidebar-user-info" class="user-card"
+          style="background:var(--card); border:1px solid var(--border-light); border-radius:var(--radius); padding:12px; margin-bottom:12px; display:flex; align-items:center; gap:10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+          <div
+            style="width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg, var(--indigo), var(--cyan)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px; flex-shrink:0;">
+            👤</div>
           <div style="flex:1; overflow:hidden;">
-            <div id="sidebar-user-name" style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Usuario</div>
-            <div id="sidebar-role-label" style="font-size:10px; color:var(--amber); font-weight: 500; display:none;">Administrador</div>
+            <div id="sidebar-user-name"
+              style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              Usuario</div>
+            <div id="sidebar-role-label" style="font-size:10px; color:var(--amber); font-weight: 500; display:none;">
+              Administrador</div>
           </div>
           <div class="user-actions" style="display:flex; gap:4px;">
-            <button class="btn btn-ghost btn-sm icon-only" id="btn-config" title="Ajustes" style="padding:4px; font-size:14px;">👤</button>
-            <button class="btn btn-ghost btn-sm icon-only" id="btn-admin-users" title="Usuarios" style="padding:4px; font-size:14px; display:none;">⚙️</button>
+            <button class="btn btn-ghost btn-sm icon-only" id="btn-config" title="Ajustes"
+              style="padding:4px; font-size:14px;">👤</button>
+            <button class="btn btn-ghost btn-sm icon-only" id="btn-admin-users" title="Usuarios"
+              style="padding:4px; font-size:14px; display:none;">⚙️</button>
           </div>
         </div>
 
-        <button class="btn btn-ghost btn-block btn-sm" id="btn-logout" style="color:var(--red); text-align:left; justify-content:flex-start; padding-left:12px; font-weight:500;">
+        <button class="btn btn-ghost btn-block btn-sm" id="btn-logout"
+          style="color:var(--red); text-align:left; justify-content:flex-start; padding-left:12px; font-weight:500;">
           ⏏ Cerrar Sesión
         </button>
       </div>
@@ -451,20 +527,26 @@
       <!-- Toolbar -->
       <div class="toolbar">
         <div class="toolbar-left">
-          <button class="btn btn-ghost btn-sm" id="btn-toggle-sidebar" title="Ocultar Menú" style="font-size:16px;padding:2px 8px;">≡</button>
+          <button class="btn btn-ghost btn-sm" id="btn-toggle-sidebar" title="Ocultar Menú"
+            style="font-size:16px;padding:2px 8px;">≡</button>
           <h1 class="project-title" id="project-title">MENÚ</h1>
-          <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-kpi" title="Mostrar/Ocultar Resumen" style="margin-left: 8px; border:1px solid var(--border-light);">KPI</button>
-          <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-grid" title="Bascular Lista de Tareas" style="margin-left: 8px; border:1px solid var(--border-light);">≡ Tareas</button>
+          <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-kpi" title="Mostrar/Ocultar Resumen"
+            style="margin-left: 8px; border:1px solid var(--border-light);">KPI</button>
+          <button class="btn btn-ghost btn-sm btn-pill" id="btn-toggle-grid" title="Bascular Lista de Tareas"
+            style="margin-left: 8px; border:1px solid var(--border-light);">≡ Tareas</button>
           <span class="project-badge" id="project-badge" style="display:none"></span>
           <!-- View Toggle -->
-          <div class="view-toggles" style="display:flex; gap:8px; margin-left:16px; border:1px solid #475569; border-radius:8px; padding:4px;">
+          <div class="view-toggles"
+            style="display:flex; gap:8px; margin-left:16px; border:1px solid #475569; border-radius:8px; padding:4px;">
             <button id="btn-view-tasks" class="btn btn-sm btn-primary active">📝 Tareas</button>
             <button id="btn-view-purchases" class="btn btn-sm btn-ghost">🛒 Sólo Compras</button>
           </div>
         </div>
         <div class="toolbar-right toolbar-actions" id="toolbar-actions" style="display:none">
           <div class="zoom-group color-toggle-group" id="btn-toggle-color-group" style="margin-right: 15px;">
-            <button class="btn btn-sm" id="btn-toggle-color" title="Alternar color Tareas/Responsables" style="background-color:#ffffff; color:#000000; font-weight:600; border-color:#d1d5db;">🎨 Proyecto</button>
+            <button class="btn btn-sm" id="btn-toggle-color" title="Alternar color Tareas/Responsables"
+              style="background-color:#ffffff; color:#000000; font-weight:600; border-color:#d1d5db;">🎨
+              Proyecto</button>
           </div>
           <div class="zoom-group">
             <button class="btn btn-ghost btn-sm" id="btn-zoom-day" title="Ver por días">D</button>
@@ -537,23 +619,33 @@
           <div class="stat-icon" style="background:#10b98120">✅</div>
           <div class="stat-info">
             <div class="stat-label">FINALIZADAS</div>
-            <div class="stat-main-row" style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
-              <span id="stat-done">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span id="stat-total-t-done">0</span></span> <span class="stat-pct" id="stat-done-pct">0%</span>
+            <div class="stat-main-row"
+              style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
+              <span id="stat-done">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span
+                  id="stat-total-t-done">0</span></span> <span class="stat-pct" id="stat-done-pct">0%</span>
             </div>
-            <div class="stat-sub-row" style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
-              S: <span id="stat-sub-done">0</span> <span style="color:var(--text-dim)">/ <span id="stat-sub-total-done">0</span></span> <span class="stat-pct" id="stat-sub-done-pct" style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
+            <div class="stat-sub-row"
+              style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
+              S: <span id="stat-sub-done">0</span> <span style="color:var(--text-dim)">/ <span
+                  id="stat-sub-total-done">0</span></span> <span class="stat-pct" id="stat-sub-done-pct"
+                style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
             </div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#f59e0b20">⚡</div>
           <div class="stat-info">
-             <div class="stat-label">EN PROGRESO</div>
-             <div class="stat-main-row" style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
-              <span id="stat-progress">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span id="stat-total-t-prog">0</span></span> <span class="stat-pct" id="stat-progress-pct">0%</span>
+            <div class="stat-label">EN PROGRESO</div>
+            <div class="stat-main-row"
+              style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
+              <span id="stat-progress">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span
+                  id="stat-total-t-prog">0</span></span> <span class="stat-pct" id="stat-progress-pct">0%</span>
             </div>
-            <div class="stat-sub-row" style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
-              S: <span id="stat-sub-prog">0</span> <span style="color:var(--text-dim)">/ <span id="stat-sub-total-prog">0</span></span> <span class="stat-pct" id="stat-sub-progress-pct" style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
+            <div class="stat-sub-row"
+              style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
+              S: <span id="stat-sub-prog">0</span> <span style="color:var(--text-dim)">/ <span
+                  id="stat-sub-total-prog">0</span></span> <span class="stat-pct" id="stat-sub-progress-pct"
+                style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
             </div>
           </div>
         </div>
@@ -561,11 +653,16 @@
           <div class="stat-icon" style="background:#55587820">⏳</div>
           <div class="stat-info">
             <div class="stat-label">PENDIENTES</div>
-            <div class="stat-main-row" style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
-              <span id="stat-pending">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span id="stat-total-t-pend">0</span></span> <span class="stat-pct" id="stat-pending-pct">0%</span>
+            <div class="stat-main-row"
+              style="font-size:16px; font-weight:700; color:var(--text); line-height:1.2; white-space: nowrap;">
+              <span id="stat-pending">0</span> <span style="font-size:11px;color:var(--text-dim)">/ <span
+                  id="stat-total-t-pend">0</span></span> <span class="stat-pct" id="stat-pending-pct">0%</span>
             </div>
-            <div class="stat-sub-row" style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
-              S: <span id="stat-sub-pend">0</span> <span style="color:var(--text-dim)">/ <span id="stat-sub-total-pend">0</span></span> <span class="stat-pct" id="stat-sub-pending-pct" style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
+            <div class="stat-sub-row"
+              style="font-size:10px; color:var(--text-muted); margin-top:2px; white-space: nowrap;">
+              S: <span id="stat-sub-pend">0</span> <span style="color:var(--text-dim)">/ <span
+                  id="stat-sub-total-pend">0</span></span> <span class="stat-pct" id="stat-sub-pending-pct"
+                style="margin-left:2px; padding:1px 4px; font-size:9px;">0%</span>
             </div>
           </div>
         </div>
@@ -580,7 +677,8 @@
           <div class="stat-icon" style="background:#10b98120">💳</div>
           <div class="stat-info">
             <div class="stat-label">APLICADO</div>
-            <div class="stat-value"><span id="stat-total-aplicado">$0</span> <span class="stat-pct" id="stat-aplicado-pct">0%</span></div>
+            <div class="stat-value"><span id="stat-total-aplicado">$0</span> <span class="stat-pct"
+                id="stat-aplicado-pct">0%</span></div>
           </div>
         </div>
 
@@ -608,16 +706,30 @@
           <!-- Row 1 (on mobile) -->
           <div class="filter-custom-select" style="position:relative;" id="custom-estado-wrapper">
             <input type="hidden" id="filter-estado" value="">
-            <button class="filter-select" id="btn-filter-estado" style="display:flex;align-items:center;justify-content:center;min-width:100px;">
+            <button class="filter-select" id="btn-filter-estado"
+              style="display:flex;align-items:center;justify-content:center;min-width:100px;">
               Estado
             </button>
-            <div class="filter-dropdown-menu" id="menu-filter-estado" style="display:none; position:absolute; top:calc(100% + 4px); left:0; width:130px; background:var(--card); border:1px solid var(--border-light); border-radius:var(--radius); box-shadow:var(--shadow-lg); z-index:500; overflow:hidden; flex-direction:column; gap:2px; padding:6px;">
-               <div class="fd-item filter-select" data-value="" style="padding:4px 8px; cursor:pointer; font-size:11px; background:transparent; border:none; color:var(--text); text-align:left;">Estado (Todos)</div>
-               <div class="fd-item" data-value="En progreso" style="padding:3px; cursor:pointer;"><span class="badge badge-en-progreso" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">En progreso</span></div>
-               <div class="fd-item" data-value="Finalizada" style="padding:3px; cursor:pointer;"><span class="badge badge-finalizada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Finalizada</span></div>
-               <div class="fd-item" data-value="No comenzada" style="padding:3px; cursor:pointer;"><span class="badge badge-no-comenzada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Pendiente</span></div>
-               <div class="fd-item" data-value="Retrasada" style="padding:3px; cursor:pointer;"><span class="badge badge-retrasada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Retrasada</span></div>
-               <div class="fd-item" data-value="Bloqueada" style="padding:3px; cursor:pointer;"><span class="badge badge-bloqueada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Bloqueada</span></div>
+            <div class="filter-dropdown-menu" id="menu-filter-estado"
+              style="display:none; position:absolute; top:calc(100% + 4px); left:0; width:130px; background:var(--card); border:1px solid var(--border-light); border-radius:var(--radius); box-shadow:var(--shadow-lg); z-index:500; overflow:hidden; flex-direction:column; gap:2px; padding:6px;">
+              <div class="fd-item filter-select" data-value=""
+                style="padding:4px 8px; cursor:pointer; font-size:11px; background:transparent; border:none; color:var(--text); text-align:left;">
+                Estado (Todos)</div>
+              <div class="fd-item" data-value="En progreso" style="padding:3px; cursor:pointer;"><span
+                  class="badge badge-en-progreso"
+                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">En progreso</span></div>
+              <div class="fd-item" data-value="Finalizada" style="padding:3px; cursor:pointer;"><span
+                  class="badge badge-finalizada"
+                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Finalizada</span></div>
+              <div class="fd-item" data-value="No comenzada" style="padding:3px; cursor:pointer;"><span
+                  class="badge badge-no-comenzada"
+                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Pendiente</span></div>
+              <div class="fd-item" data-value="Retrasada" style="padding:3px; cursor:pointer;"><span
+                  class="badge badge-retrasada"
+                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Retrasada</span></div>
+              <div class="fd-item" data-value="Bloqueada" style="padding:3px; cursor:pointer;"><span
+                  class="badge badge-bloqueada"
+                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Bloqueada</span></div>
             </div>
           </div>
           <select class="filter-select" id="filter-responsable">
@@ -626,24 +738,30 @@
           <select class="filter-select" id="filter-proyecto">
             <option value="">Proyecto</option>
           </select>
-          
+
           <!-- Row 2 (on mobile) -->
           <div class="filter-search" style="flex:1;">
             <span class="filter-search-icon">🔍</span>
             <input type="text" id="filter-search" placeholder="Buscar..." class="filter-input" style="width:100%">
           </div>
-          <button class="btn btn-ghost btn-sm btn-pill btn-filter-clear" style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap;" title="Limpiar filtros">Limpiar Filtros</button>
+          <button class="btn btn-ghost btn-sm btn-pill btn-filter-clear"
+            style="border:1px solid var(--border-light); color:var(--text); font-weight:600; white-space:nowrap;"
+            title="Limpiar filtros">Limpiar Filtros</button>
         </div>
       </div>
 
       <!-- Vista Compras Toolbar -->
       <div id="purchases-view" style="display:none; flex-direction:column; flex:none;">
-        <div style="padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px;">
-          <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">🛒 Planning de Compras</span>
-          <button class="btn btn-ghost btn-sm btn-pill" id="btn-open-charts" style="margin-left:auto; border:1px solid var(--border-light); font-size:11px;">📊 Gráficos</button>
+        <div
+          style="padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px;">
+          <span
+            style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">🛒
+            Planning de Compras</span>
+          <button class="btn btn-ghost btn-sm btn-pill" id="btn-open-charts"
+            style="margin-left:auto; border:1px solid var(--border-light); font-size:11px;">📊 Gráficos</button>
         </div>
       </div>
-      
+
       <!-- Gantt Tareas / Compras / Consolidado -->
       <div id="gantt_here"></div>
 
@@ -700,14 +818,10 @@
   </div>
 
   <!-- ══════════════ MODAL: TAREA ══════════════ -->
-  <div class="modal-overlay hidden" id="modal-task">
+  <div class="modal-overlay hidden dhtmlx_modal_box" id="modal-task">
     <div class="modal-box">
       <div class="modal-header" style="justify-content: space-between; align-items: center; display: flex;">
         <span class="modal-title" id="modal-task-title">Nueva Tarea</span>
-        <label class="radio-option" id="label-es-compra" style="font-weight:700; font-size:13px; color:var(--cyan); margin-left: auto; margin-right: 15px; cursor: pointer; padding: 4px 10px; border-radius: var(--radius); transition: all 0.2s;">
-          <input type="checkbox" id="field-es-compra">
-          <span>🛒 Es una Compra</span>
-        </label>
         <button class="modal-close" data-close-modal>×</button>
       </div>
       <div class="modal-body">
@@ -722,12 +836,15 @@
           <!-- Nombre (Es el campo descripcion en la DB) -->
           <div class="form-group col-span-2">
             <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:4px">
-              <label class="form-label" for="field-descripcion" style="margin-bottom:0">Nombre de la Tarea (Descripción) *</label>
-              <button class="btn btn-ghost btn-sm" id="btn-open-notes-quick" style="padding:0 8px; font-size:10px; color:var(--indigo)">
+              <label class="form-label" for="field-descripcion" style="margin-bottom:0">Nombre de la Tarea (Descripción)
+                *</label>
+              <button class="btn btn-ghost btn-sm" id="btn-open-notes-quick"
+                style="padding:0 8px; font-size:10px; color:var(--indigo)">
                 📝 Ver/Agregar Notas de Detalle
               </button>
             </div>
-            <textarea class="form-control" id="field-descripcion" rows="2" placeholder="Ej: Cimientos, Instalación eléctrica…"></textarea>
+            <textarea class="form-control" id="field-descripcion" rows="2"
+              placeholder="Ej: Cimientos, Instalación eléctrica…"></textarea>
           </div>
 
           <!-- Proyecto -->
@@ -745,64 +862,62 @@
           </div>
 
           <!-- Fechas Grid: Baseline, Proyectado, Real -->
-          <div class="form-group col-span-2" id="group-tarea-fechas" style="background:var(--bg); border:1px solid var(--border-light); padding:10px; border-radius:var(--radius);">
-             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-                <!-- Columna 1 -->
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                  <div>
-                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px">Inicio Baseline *</label>
-                    <input class="form-control" id="field-fecha-inicio" type="date">
-                  </div>
-                  <div>
-                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px; color:var(--text-dim)">Inicio Proyectado 🔒</label>
-                    <input class="form-control" id="field-fecha-inicio-proyectada" type="date" disabled style="background:#0000000a; border:1px dashed var(--border)">
-                  </div>
+          <div class="form-group col-span-2" id="group-tarea-fechas"
+            style="background:var(--bg); border:1px solid var(--border-light); padding:10px; border-radius:var(--radius);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+              <!-- Columna 1 -->
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div>
+                  <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px">Inicio Baseline
+                    *</label>
+                  <input class="form-control" id="field-fecha-inicio" type="date">
                 </div>
-                <!-- Columna 2 -->
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                  <div>
-                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px">Duración (d) *</label>
-                    <input class="form-control" id="field-duracion" type="number" min="1" value="1">
-                  </div>
-                  <div>
-                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px; color:var(--text-dim)">Fin Proyectado 🔒</label>
-                    <input class="form-control" id="field-fecha-fin-proyectada" type="date" disabled style="background:#0000000a; border:1px dashed var(--border)">
-                  </div>
+                <div>
+                  <label class="form-label"
+                    style="font-size:11px; float:none; margin-bottom:2px; color:var(--text-dim)">Inicio Proyectado
+                    🔒</label>
+                  <input class="form-control" id="field-fecha-inicio-proyectada" type="date" disabled
+                    style="background:#0000000a; border:1px dashed var(--border)">
                 </div>
-                <!-- Columna 3 -->
-                <div style="display: flex; flex-direction: column; gap: 8px; border-left:1px solid var(--border-light); padding-left:10px;">
-                  <div>
-                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px; color:var(--indigo)">Real Iniciada</label>
-                    <input class="form-control" id="field-fecha-real-iniciada" type="date">
-                  </div>
-                  <div>
-                    <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px; color:var(--btn-green-bg)">Real Completada</label>
-                    <input class="form-control" id="field-fecha-completada" type="date">
-                  </div>
+              </div>
+              <!-- Columna 2 -->
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div>
+                  <label class="form-label" style="font-size:11px; float:none; margin-bottom:2px">Duración (d) *</label>
+                  <input class="form-control" id="field-duracion" type="number" min="1" value="1">
                 </div>
-             </div>
+                <div>
+                  <label class="form-label"
+                    style="font-size:11px; float:none; margin-bottom:2px; color:var(--text-dim)">Fin Proyectado
+                    🔒</label>
+                  <input class="form-control" id="field-fecha-fin-proyectada" type="date" disabled
+                    style="background:#0000000a; border:1px dashed var(--border)">
+                </div>
+              </div>
+              <!-- Columna 3 -->
+              <div
+                style="display: flex; flex-direction: column; gap: 8px; border-left:1px solid var(--border-light); padding-left:10px;">
+                <div>
+                  <label class="form-label"
+                    style="font-size:11px; float:none; margin-bottom:2px; color:var(--indigo)">Real Iniciada</label>
+                  <input class="form-control" id="field-fecha-real-iniciada" type="date">
+                </div>
+                <div>
+                  <label class="form-label"
+                    style="font-size:11px; float:none; margin-bottom:2px; color:var(--btn-green-bg)">Real
+                    Completada</label>
+                  <input class="form-control" id="field-fecha-completada" type="date">
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Costo Tarea -->
           <div class="form-group col-span-2" id="group-tarea-costo">
             <label class="form-label" for="field-costo">Costo General ($) *</label>
-            <input class="form-control" id="field-costo" type="number" min="0" step="0.01" value="0">
+            <input class="form-control" id="field-costo" type="number" min="0" step="0.01">
           </div>
 
-          <!-- Tipo días -->
-          <div class="form-group col-span-2" id="group-tarea-tipodias">
-            <label class="form-label">Tipo de días</label>
-            <div class="radio-group">
-              <label class="radio-option">
-                <input type="radio" name="tipo_dias" value="calendario" checked>
-                📅 Calendario (incluye domingos)
-              </label>
-              <label class="radio-option">
-                <input type="radio" name="tipo_dias" value="laboral">
-                🗓 Laborales (Lun–Sáb)
-              </label>
-            </div>
-          </div>
 
           <!-- Responsable -->
           <div class="form-group col-span-2" style="margin-bottom:0">
@@ -837,17 +952,6 @@
             </div>
           </div>
 
-          <!-- Recursos -->
-          <div class="form-group col-span-2" id="group-tarea-recursos">
-            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
-              Recursos
-              <button class="btn btn-ghost btn-sm" id="btn-add-recurso" title="Nuevo Recurso"
-                style="padding:2px 8px">＋</button>
-            </label>
-            <div id="recursos-wrap" style="display:flex;flex-direction:column;gap:4px;max-height:130px;overflow-y:auto;
-               padding:8px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius)">
-            </div>
-          </div>
 
           <!-- Dependencias -->
           <div class="form-group col-span-2" id="group-tarea-dependencias">
@@ -857,53 +961,8 @@
             </div>
           </div>
 
-          <!-- Compras Asociadas -->
-          <div class="form-group col-span-2" id="group-task-purchases" style="display:none;">
-            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
-              Compras Asociadas
-            </label>
-            <div id="task-purchases-list" style="display:none;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;padding:8px 10px;background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius);">
-              <span style="color:var(--text-dim);font-size:11px">Sin compras asociadas.</span>
-            </div>
-          </div>
 
-          <div id="section-compra-fields" class="form-grid col-span-2" style="display:none; background:rgba(34, 211, 238, 0.05); border:1px solid rgba(34, 211, 238, 0.2); border-radius:var(--radius); padding:12px; margin-top:5px">
-            <!-- Row 1 -->
-            <div class="form-group">
-              <label class="form-label" style="color:var(--cyan)">Cantidad *</label>
-              <input class="form-control" id="field-compra-cantidad" type="number" min="0.01" step="0.01" value="1">
-            </div>
-            <div class="form-group">
-              <label class="form-label" style="color:var(--cyan)">Valor Unitario ($) *</label>
-              <input class="form-control" id="field-compra-valor" type="number" step="0.01" value="0">
-            </div>
 
-            <!-- Row 2 -->
-            <div class="form-group">
-              <label class="form-label" style="color:var(--text)">Fecha Solicitud *</label>
-              <input class="form-control" id="field-compra-f-sol" type="date">
-            </div>
-            <div class="form-group">
-              <label class="form-label" style="color:var(--text)">Arribo Necesario *</label>
-              <input class="form-control" id="field-compra-f-arr" type="date">
-            </div>
-
-            <!-- Row 3 -->
-            <div class="form-group">
-              <label class="form-label" style="color:var(--text)">Fecha OC Emitida</label>
-              <input class="form-control" id="field-compra-f-oc" type="date">
-            </div>
-            <div class="form-group">
-              <label class="form-label" style="color:var(--text)">Fecha Comprometida (Si hay OC) *</label>
-              <input class="form-control" id="field-compra-f-comp" type="date">
-            </div>
-
-            <!-- Row 4 -->
-            <div class="form-group col-span-2">
-              <label class="form-label" style="color:var(--btn-green-bg)">Fecha Entregado Real</label>
-              <input class="form-control" id="field-compra-f-ent" type="date">
-            </div>
-          </div>
 
         </div>
       </div>
@@ -968,8 +1027,10 @@
           <!-- Fila 1: Nombre + Estado -->
           <div class="form-grid">
             <div class="form-group col-span-2">
-              <label class="form-label" for="field-pur-producto">Nombre de la Compra <span style="color:var(--red)">*</span></label>
-              <input class="form-control" id="field-pur-producto" type="text" placeholder="Ej: Hierros 12mm, Servicio instalación..." required>
+              <label class="form-label" for="field-pur-producto">Nombre de la Compra <span
+                  style="color:var(--red)">*</span></label>
+              <input class="form-control" id="field-pur-producto" type="text"
+                placeholder="Ej: Hierros 12mm, Servicio instalación..." required>
             </div>
 
             <!-- Estado: solo lectura, calculado automáticamente -->
@@ -990,20 +1051,23 @@
             <!-- Notas -->
             <div class="form-group">
               <label class="form-label" for="field-pur-notas">Notas</label>
-              <textarea class="form-control" id="field-pur-notas" rows="2" placeholder="Especificaciones, marca, observaciones..."></textarea>
+              <textarea class="form-control" id="field-pur-notas" rows="2"
+                placeholder="Especificaciones, marca, observaciones..."></textarea>
             </div>
           </div>
 
           <!-- Fila 2: Proyecto + Solicitante -->
           <div class="form-grid">
             <div class="form-group">
-              <label class="form-label" for="field-pur-proyecto">Proyecto <span style="color:var(--red)">*</span></label>
+              <label class="form-label" for="field-pur-proyecto">Proyecto <span
+                  style="color:var(--red)">*</span></label>
               <select class="form-control" id="field-pur-proyecto" required>
                 <option value="">Seleccionar proyecto...</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="field-pur-solicitante">Solicitante <span style="color:var(--red)">*</span></label>
+              <label class="form-label" for="field-pur-solicitante">Solicitante <span
+                  style="color:var(--red)">*</span></label>
               <select class="form-control" id="field-pur-solicitante" required>
                 <option value="">Seleccionar solicitante...</option>
               </select>
@@ -1021,7 +1085,9 @@
           </div>
 
           <!-- Divisor Fechas -->
-          <div class="form-divider" style="grid-column:1/-1; margin:12px 0 8px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--border); padding-bottom:6px;">📅 Fechas y Plazos</div>
+          <div class="form-divider"
+            style="grid-column:1/-1; margin:12px 0 8px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--border); padding-bottom:6px;">
+            📅 Fechas y Plazos</div>
 
           <div class="form-grid">
             <div class="form-group">
@@ -1029,7 +1095,8 @@
               <input class="form-control" id="field-pur-f-solicitud" type="date">
             </div>
             <div class="form-group">
-              <label class="form-label" for="field-pur-f-arribo-nec">Arribo Necesario <span style="color:var(--red)">*</span></label>
+              <label class="form-label" for="field-pur-f-arribo-nec">Arribo Necesario <span
+                  style="color:var(--red)">*</span></label>
               <input class="form-control" id="field-pur-f-arribo-nec" type="date">
             </div>
             <div class="form-group">
@@ -1052,7 +1119,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-danger btn-sm" id="btn-delete-purchase" style="margin-right:auto;display:none">🗑 Eliminar</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete-purchase" style="margin-right:auto;display:none">🗑
+          Eliminar</button>
         <button class="btn btn-ghost" data-close-modal>Cancelar</button>
         <button class="btn btn-primary" id="btn-save-purchase">✓ Guardar Compra</button>
       </div>
@@ -1202,7 +1270,8 @@
         <div id="tab-responsables" class="config-tab-content" style="padding:20px 24px; flex:1; overflow-y:auto;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Listado de Líderes y Equipos</span>
-            <button class="btn btn-primary btn-sm" id="btn-add-responsable-config" style="padding:4px 10px; font-size:11px;">＋ Nuevo Responsable</button>
+            <button class="btn btn-primary btn-sm" id="btn-add-responsable-config"
+              style="padding:4px 10px; font-size:11px;">＋ Nuevo Responsable</button>
           </div>
           <div id="config-responsables-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
@@ -1210,7 +1279,8 @@
         <div id="tab-recursos" class="config-tab-content hidden" style="padding:20px 24px; flex:1; overflow-y:auto;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Inventario de Recursos</span>
-            <button class="btn btn-primary btn-sm" id="btn-add-recurso-config" style="padding:4px 10px; font-size:11px;">＋ Nuevo Recurso</button>
+            <button class="btn btn-primary btn-sm" id="btn-add-recurso-config"
+              style="padding:4px 10px; font-size:11px;">＋ Nuevo Recurso</button>
           </div>
           <div id="config-recursos-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
@@ -1223,7 +1293,8 @@
 
   <!-- ══════════════ LOGIN OVERLAY ══════════════ -->
   <div class="modal-overlay hidden" id="login-overlay" style="z-index: 9999; background: var(--bg-dark);">
-    <div class="modal-content" style="width: 320px; text-align: left; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 30px 24px; box-shadow: var(--shadow-lg);">
+    <div class="modal-content"
+      style="width: 320px; text-align: left; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 30px 24px; box-shadow: var(--shadow-lg);">
       <div style="font-size:40px; margin-bottom: 8px; text-align: center;">🔐</div>
       <h3 style="margin-bottom: 24px; font-weight: 600; text-align: center; color: var(--text);">Iniciar Sesión</h3>
       <form id="form-login" style="display: flex; flex-direction: column; gap: 16px;">
@@ -1274,22 +1345,26 @@
       <div class="modal-body">
         <form id="form-user" style="display: flex; flex-direction: column; gap: 8px;">
           <input type="hidden" id="user-id">
-          
+
           <label class="form-label">Nombre</label>
           <input type="text" id="user-nombre" class="form-control" required>
-          
+
           <label class="form-label">Email</label>
           <input type="email" id="user-email" class="form-control" required>
 
-          <label class="form-label">Contraseña <span style="font-size:10px;color:gray">(Dejar en blanco para no cambiar)</span></label>
+          <label class="form-label">Contraseña <span style="font-size:10px;color:gray">(Dejar en blanco para no
+              cambiar)</span></label>
           <input type="password" id="user-password" class="form-control">
 
 
-          <div style="margin-top:10px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-dark);">
+          <div
+            style="margin-top:10px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-dark);">
             <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
-              <input type="checkbox" id="user-is-admin" style="accent-color: var(--amber);"> 👑 Es Administrador del Sistema
+              <input type="checkbox" id="user-is-admin" style="accent-color: var(--amber);"> 👑 Es Administrador del
+              Sistema
             </label>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Puede crear/eliminar usuarios y ver configuraciones maestras.</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Puede crear/eliminar usuarios y ver
+              configuraciones maestras.</div>
           </div>
 
           <label class="form-label" style="margin-top:10px">Permisos CRUD</label>
@@ -1302,8 +1377,10 @@
           </div>
 
           <label class="form-label">Proyectos Autorizados</label>
-          <div id="user-projects-list" style="max-height:100px; background: var(--bg); overflow-y:auto; border:1px solid var(--border); padding:8px; border-radius:4px; margin-bottom:12px;">
-            <label style="display:block;"><input type="checkbox" id="user-proj-all" value="ALL"> [ALL] Todos los proyectos</label>
+          <div id="user-projects-list"
+            style="max-height:100px; background: var(--bg); overflow-y:auto; border:1px solid var(--border); padding:8px; border-radius:4px; margin-bottom:12px;">
+            <label style="display:block;"><input type="checkbox" id="user-proj-all" value="ALL"> [ALL] Todos los
+              proyectos</label>
             <div id="user-proj-checks"></div>
           </div>
 
@@ -1321,13 +1398,17 @@
 
   <!-- ══════════════ MODAL DE CONFIRMACIÓN ══════════════ -->
   <div class="modal-overlay hidden" id="modal-confirm" style="z-index: 10000;">
-    <div class="modal-box" style="max-width: 360px; padding: 24px; text-align: center; border-top: 4px solid var(--red);">
+    <div class="modal-box"
+      style="max-width: 360px; padding: 24px; text-align: center; border-top: 4px solid var(--red);">
       <div style="font-size:36px; margin-bottom: 12px; text-shadow: 0 0 10px #ff000050;">⚠️</div>
-      <h3 style="margin-bottom: 8px; font-weight: 600; font-size: 16px; color: var(--text);" id="confirm-title">Confirmación</h3>
+      <h3 style="margin-bottom: 8px; font-weight: 600; font-size: 16px; color: var(--text);" id="confirm-title">
+        Confirmación</h3>
       <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px; line-height:1.5;" id="confirm-msg"></p>
       <div style="display:flex; gap:12px; justify-content:center;">
-        <button class="btn btn-ghost" id="btn-confirm-no" style="flex:1; border: 1px solid var(--border);">No, cancelar</button>
-        <button class="btn btn-primary" id="btn-confirm-yes" style="flex:1; background: var(--red); color: white;">Sí, acepto</button>
+        <button class="btn btn-ghost" id="btn-confirm-no" style="flex:1; border: 1px solid var(--border);">No,
+          cancelar</button>
+        <button class="btn btn-primary" id="btn-confirm-yes" style="flex:1; background: var(--red); color: white;">Sí,
+          acepto</button>
       </div>
     </div>
   </div>
@@ -1342,15 +1423,21 @@
       <div class="modal-body">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:8px 0">
           <div>
-            <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Gasto por Estado</div>
+            <div
+              style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">
+              Gasto por Estado</div>
             <div style="position:relative;height:260px"><canvas id="chart-expense-by-state"></canvas></div>
           </div>
           <div>
-            <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Compras por Estado (Cantidad)</div>
+            <div
+              style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">
+              Compras por Estado (Cantidad)</div>
             <div style="position:relative;height:260px"><canvas id="chart-count-by-state"></canvas></div>
           </div>
           <div class="col-span-2" style="grid-column:1/-1">
-            <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Alertas de Atraso</div>
+            <div
+              style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">
+              Alertas de Atraso</div>
             <div style="display:flex;gap:16px" id="chart-kpi-summary"></div>
           </div>
         </div>
