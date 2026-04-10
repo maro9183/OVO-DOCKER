@@ -151,12 +151,13 @@
       opacity: 0.6;
     }
 
-    /* Asegurar visibilidad del texto sobre las capas */
-    .task-bar-label,
-    .task-bar-resp {
+    /* Forzar visibilidad del texto sobre las capas */
+    .task-bar-label, .task-bar-resp {
       position: relative;
-      z-index: 2 !important;
-      text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.8);
+      z-index: 10 !important;
+      text-shadow: 0px 1px 3px rgba(0, 0, 0, 1) !important;
+      font-weight: 600 !important;
+      pointer-events: none;
     }
 
     /* Aumentar contraste de la barra de progreso interno (Avance) */
@@ -201,9 +202,9 @@
       cursor: help;
     }
 
-    /* Ocultar las capas apiladas viejas para tareas normales si el usuario prefiere solo las divisorias */
-    .gantt_task_line:not(.purchase-task) .layer-baseline,
-    .gantt_task_line:not(.purchase-task) .layer-real {
+    /* Ocultar las capas apiladas viejas para compras (ya tienen su propia lifeline) */
+    .gantt_task_line.purchase-task .layer-baseline,
+    .gantt_task_line.purchase-task .layer-real {
       display: none !important;
     }
 
@@ -1073,6 +1074,7 @@
               </select>
             </div>
 
+
             <!-- Cantidades y valores -->
             <div class="form-group">
               <label class="form-label" for="field-pur-cantidad">Cantidad</label>
@@ -1081,6 +1083,13 @@
             <div class="form-group">
               <label class="form-label" for="field-pur-valor">Valor Unitario ($)</label>
               <input class="form-control" id="field-pur-valor" type="number" step="0.01" min="0" value="0">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="field-pur-responsable">Responsable de Compra</label>
+              <select class="form-control" id="field-pur-responsable">
+                <option value="">Seleccionar responsable...</option>
+              </select>
             </div>
           </div>
 

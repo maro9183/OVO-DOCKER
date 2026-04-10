@@ -53,33 +53,32 @@ window.GanttApp = (() => {
     }
 
     // Refrescar colores de todas las tareas en el gantt en MODO SILENCIOSO 
-    _ignoreUpdate = true;  // Apaga temporalmente el DataProcessor
-    gantt.eachTask(task => {
-      let finalColor;
-      if (_colorMode === 'responsable') {
-        finalColor = getResponsableColor(task.responsable);
-      } else {
-        // En modo proyecto, recuperamos el color base
-        if (task._es_compra) {
-          // Si es compra, chequeamos si estamos en vista combinada o solo compras
-          const isCombined = document.getElementById('btn-view-combined')?.classList.contains('active');
-          if (isCombined) {
-            finalColor = '#ffffff';
-          } else {
-            finalColor = _projectsMap[task._raw?.id_proyecto]?.color || '#4f8ef7';
-          }
+    _ignoreUpdate = true;
+    
+    gantt.batchUpdate(() => {
+      gantt.eachTask(task => {
+        let finalColor;
+        if (_colorMode === 'responsable') {
+          finalColor = getResponsableColor(task.responsable);
         } else {
-          finalColor = _projectsMap[task._raw?.id_proyecto]?.color || currentProjectColor;
+          if (task._es_compra) {
+            const isCombined = document.getElementById('btn-view-combined')?.classList.contains('active');
+            finalColor = isCombined ? '#ffffff' : (_projectsMap[task._raw?.id_proyecto]?.color || '#4f8ef7');
+          } else {
+            finalColor = _projectsMap[task._raw?.id_proyecto]?.color || currentProjectColor;
+          }
         }
-      }
-      task.color = finalColor;
-      task.textColor = (finalColor === '#ffffff' || finalColor === '#fff') ? '#0f172a' : undefined;
-      gantt.updateTask(task.id);
+        task.color = finalColor;
+        task.textColor = (finalColor === '#ffffff' || finalColor === '#fff') ? '#0f172a' : undefined;
+        // USAR refreshTask para cambios puramente VISUALES (evita disparar el DataProcessor)
+        gantt.refreshTask(task.id);
+      });
     });
+    
     gantt.render();
     
-    // Devolvemos el control al DataProcessor una vez aplicado el renderizado visual local
-    _ignoreUpdate = false;
+    // Extender el bloqueo para capturar cualquier disparo remanente
+    setTimeout(() => { _ignoreUpdate = false; }, 1000);
   }
 
   /* ── Scales ─────────────────────────────────────────────── */
@@ -215,7 +214,7 @@ window.GanttApp = (() => {
       }
     ];
 
-    /* ── Templates ────────────────────────────────────────── */
+  /* ── Templates ────────────────────────────────────────── */
     gantt.templates.date_grid = d =>
       d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : '';
 
@@ -237,99 +236,179 @@ window.GanttApp = (() => {
       const initials = (respName || '').split('@')[0].substring(0, 2).toUpperCase() || '??';
       const tc = task.textColor ? `color:${task.textColor} !important;` : '';
       
-      // 1. Texto base original
-      let html = `<span class="task-bar-label" style="${tc}">${task.text || ''}</span>
-                  <span class="task-bar-resp" title="${respName || ''}" style="${tc}">${initials}</span>`;
+      // 1. Labels (Layer Superior)
+      let labelsHtml = `<span class="task-bar-label" style="${tc}">${task.text || ''}</span>
+                        <span class="task-bar-resp" title="${respName || ''}" style="${tc}">${initials}</span>`;
                   
-      // 2. Función helper para dibujar segmentos
+      // Helper universal para segmentos absolutos (Píxeles)
       const drawAbsoluteSegment = (sDateStr, eDateStr, className, topOffset, height, isPoint = false) => {
         if (!sDateStr) return '';
         const sDate = gantt.date.parseDate(sDateStr, "xml_date");
         if (!sDate) return '';
         let width = isPoint ? 10 : 0;
         let left = gantt.posFromDate(sDate) - gantt.posFromDate(task.start_date);
-        
         if (!isPoint && eDateStr) {
           const eDate = gantt.date.parseDate(eDateStr, "xml_date");
           if (eDate) {
-            eDate.setDate(eDate.getDate() + 1); // Exclusivo
+            eDate.setDate(eDate.getDate() + 1);
             width = gantt.posFromDate(eDate) - gantt.posFromDate(sDate);
           }
         }
-        if (width <= 0 && !isPoint) return ''; // No dibujar si es negativo o cero
-        if (width < 5 && !isPoint)  width = 5;  // Seguridad de visibilidad
-        
-        // Corrección visual si isPoint
+        if (width <= 0 && !isPoint) return '';
         if (isPoint) left -= 5; 
-        
         return `<div class="${className}" style="position:absolute; left:${left}px; top:${topOffset}px; width:${width}px; height:${height}px;"></div>`;
       };
 
-      // 3. Capa Baseline
-      if (task._f_inicio_base && task._f_fin_base) {
-        html += drawAbsoluteSegment(task._f_inicio_base, task._f_fin_base, 'layer-baseline', -2, 24);
-      }
-
-      // 4. Capa Real
-      if (task._f_real_ini) {
-        // Si no terminó, dibujar hasta hoy
-        const endRealStr = task._f_real_fin || gantt.date.date_to_str("%Y-%m-%d")(new Date());
-        html += drawAbsoluteSegment(task._f_real_ini, endRealStr, 'layer-real', 18, 6);
-      }
-
-      // 5. Segmentos de Compra
+      // ── CASO COMPRAS: Segmentos Absolutos (Original) ───────────────
       if (task._es_compra && task._compra) {
         const c = task._compra;
-        html += drawAbsoluteSegment(c.f_solicitud, c.f_arribo_nec, 'purchase-segment purchase-req-arr', 0, 20);
-        html += drawAbsoluteSegment(c.f_oc, c.f_comp, 'purchase-segment purchase-oc-comp', 0, 20);
+        let segmentsHtml = '';
+        segmentsHtml += drawAbsoluteSegment(c.f_solicitud, c.f_arribo_nec, 'purchase-segment purchase-req-arr', 0, 20);
+        segmentsHtml += drawAbsoluteSegment(c.f_oc, c.f_comp, 'purchase-segment purchase-oc-comp', 0, 20);
         if (c.f_ent) {
-          html += drawAbsoluteSegment(c.f_ent, null, 'purchase-milestone-marker purchase-delivered', 6, 8, true);
+          segmentsHtml += drawAbsoluteSegment(c.f_ent, null, 'purchase-milestone-marker purchase-delivered', 6, 8, true);
         }
+        
+        return `<div class="gantt_task_content">${labelsHtml}${segmentsHtml}</div>`;
       }
 
-      // 6. Líneas divisorias de ciclo de vida (Solo para tareas de obra)
-      const drawVerticalDivider = (dateStr, color, label) => {
-        if (!dateStr) return '';
-        const d = gantt.date.parseDate(dateStr, "xml_date");
-        if (!d) return '';
-        const left = gantt.posFromDate(d) - gantt.posFromDate(task.start_date);
-        return `<div class="task-timeline-divider" style="left:${left}px; background-color:${color};" title="${label}: ${dateStr}"></div>`;
-      };
-
+      // ── REVERTIDO: Vista estándar con Líneas Divisorias y Capas ──
       if (!task._es_compra) {
+        // Helper para dibujo de capas absolutas (Baseline/Real)
+        const drawAbsoluteSegment = (sDateStr, eDateStr, className, topOffset, height, isPoint = false) => {
+          if (!sDateStr) return '';
+          const sDate = gantt.date.parseDate(sDateStr, "xml_date");
+          if (!sDate) return '';
+          let width = isPoint ? 10 : 0;
+          let left = gantt.posFromDate(sDate) - gantt.posFromDate(task.start_date);
+          if (!isPoint && eDateStr) {
+            const eDate = gantt.date.parseDate(eDateStr, "xml_date");
+            if (eDate) {
+              eDate.setDate(eDate.getDate() + 1);
+              width = gantt.posFromDate(eDate) - gantt.posFromDate(sDate);
+            }
+          }
+          if (width <= 0 && !isPoint) return '';
+          if (isPoint) left -= 5; 
+          return `<div class="${className}" style="position:absolute; left:${left}px; top:${topOffset}px; width:${width}px; height:${height}px;"></div>`;
+        };
+
+        // 1. Capa Baseline
+        if (task._f_inicio_base && task._f_fin_base) {
+          labelsHtml += drawAbsoluteSegment(task._f_inicio_base, task._f_fin_base, 'layer-baseline', -2, 24);
+        }
+        // 2. Capa Real
+        if (task._f_real_ini) {
+          const endRealStr = task._f_real_fin || gantt.date.date_to_str("%Y-%m-%d")(new Date());
+          labelsHtml += drawAbsoluteSegment(task._f_real_ini, endRealStr, 'layer-real', 18, 6);
+        }
+
+        // 3. Líneas divisorias
+        const drawVerticalDivider = (dateStr, color, label) => {
+          if (!dateStr) return '';
+          const d = gantt.date.parseDate(dateStr, "xml_date");
+          if (!d) return '';
+          const left = gantt.posFromDate(d) - gantt.posFromDate(task.start_date);
+          return `<div class="task-timeline-divider" style="left:${left}px; background-color:${color};" title="${label}: ${dateStr}"></div>`;
+        };
+
+        let dividersHtml = '';
         if (task._f_inicio_base && task._f_inicio_base !== task._f_inicio_proy) {
-          html += drawVerticalDivider(task._f_inicio_base, 'rgba(255,255,255,0.6)', 'Inicio Base');
+          dividersHtml += drawVerticalDivider(task._f_inicio_base, 'rgba(255,255,255,0.6)', 'Inicio Base');
         }
         if (task._f_inicio_proy) {
-          html += drawVerticalDivider(task._f_inicio_proy, 'rgba(14, 165, 233, 0.8)', 'Inicio Proyectado');
+          dividersHtml += drawVerticalDivider(task._f_inicio_proy, 'rgba(14, 165, 233, 0.8)', 'Inicio Proyectado');
         }
         if (task._f_real_ini) {
-          html += drawVerticalDivider(task._f_real_ini, 'rgba(34, 197, 94, 0.9)', 'Real Iniciada');
+          dividersHtml += drawVerticalDivider(task._f_real_ini, 'rgba(34, 197, 94, 0.9)', 'Real Iniciada');
         }
         if (task._f_fin_proy) {
-          html += drawVerticalDivider(task._f_fin_proy, 'rgba(245, 158, 11, 0.8)', 'Fin Proyectada');
+          dividersHtml += drawVerticalDivider(task._f_fin_proy, 'rgba(245, 158, 11, 0.8)', 'Fin Proyectada');
         }
         if (task._f_real_fin) {
-          html += drawVerticalDivider(task._f_real_fin, 'rgba(34, 197, 94, 1)', 'Real Completada');
+          dividersHtml += drawVerticalDivider(task._f_real_fin, 'rgba(34, 197, 94, 1)', 'Real Completada');
         }
+
+        return labelsHtml + dividersHtml;
       }
 
-      return html;
+      return labelsHtml;
     };
 
     gantt.templates.tooltip_text = (s, e, t) => {
+      const getFormattedDate = (dStr) => {
+        if (!dStr) return '-';
+        const d = gantt.date.parseDate(dStr, "xml_date");
+        return d ? gantt.templates.date_grid(d) : '-';
+      };
+
+      const resolveName = (id) => {
+        if (!id) return '-';
+        return (window.PurchaseModule && window.PurchaseModule.getResponsableName) 
+          ? window.PurchaseModule.getResponsableName(id) : id;
+      };
+
+      if (t._es_compra && t._compra) {
+        const c = t._compra;
+        return `
+        <div style="min-width:220px; padding:4px;">
+          <strong style="font-size:14px; color:var(--cyan); border-bottom:1px solid #444; display:block; padding-bottom:4px; margin-bottom:8px;">🛒 ${t.text || 'Compra'}</strong>
+          <div style="line-height:1.6; display:flex; flex-direction:column; gap:3px;">
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">Proyecto:</span> ${t._projectName || '-'}</div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">Solicitante:</span> ${resolveName(c.id_solicitante)}</div>
+            <div style="margin:4px 0; border-top:1px dashed #333"></div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">F. Solicitud:</span> <span style="font-size:11px">${getFormattedDate(c.f_solicitud)}</span></div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">Arribo Nec.:</span> <span style="font-size:11px">${getFormattedDate(c.f_arribo_nec)}</span></div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">OC Emitida:</span> <span style="font-size:11px">${getFormattedDate(c.f_oc)}</span></div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">F. Comprometida:</span> <span style="font-size:11px">${getFormattedDate(c.f_comp)}</span></div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">F. Entregado:</span> <span style="font-size:11px">${getFormattedDate(c.f_ent)}</span></div>
+            <div style="margin:4px 0; border-top:1px dashed #333"></div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">Estado:</span> ${estadoBadge(t)}</div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">Valor Total:</span> <span style="color:var(--green)">$${((c.cantidad || 1) * (c.valor_unitario || 0)).toLocaleString()}</span></div>
+            <div><span style="color:var(--text-muted); width:110px; display:inline-block">Responsable:</span> ${resolveName(t.responsable)}</div>
+          </div>
+        </div>`;
+      }
+
+      // Tooltip estándar para Tareas
+      const criticalDepInfo = (() => {
+        const deps = (t._dependencias || "").split(",").map(id => id.trim()).filter(Boolean);
+        if (!deps.length) return '-';
+        let maxEnd = null;
+        let maxName = '-';
+        deps.forEach(dId => {
+          if (gantt.isTaskExists(dId)) {
+            const pred = gantt.getTask(dId);
+            const pEnd = pred.end_date;
+            if (pEnd) {
+              if (!maxEnd || pEnd > maxEnd) {
+                maxEnd = pEnd;
+                maxName = pred.text;
+              }
+            }
+          }
+        });
+        return maxName;
+      })();
+
       return `
-      <div style="min-width:180px">
-        <strong style="font-size:13px">${t.text || ''}</strong><br>
-        <div style="margin-top:6px;line-height:2">
-          <span style="color:var(--text-muted)">Proyecto:</span> ${t._projectName || '-'}<br>
-          <span style="color:var(--text-muted)">Inicio:</span> ${gantt.templates.date_grid(s)}<br>
-          <span style="color:var(--text-muted)">Fin:</span> ${gantt.templates.date_grid(e)}<br>
-          <span style="color:var(--text-muted)">Estado:</span> ${estadoBadge(t)}<br>
-          <span style="color:var(--text-muted)">Progreso:</span> <span style="color:var(--indigo);font-weight:600">${Math.round((t.progress||0)*100)}%</span><br>
-          <span style="color:var(--text-muted)">Días:</span> ${t.duration} (${t._tipo_dias || 'calendario'})<br>
-          <span style="color:var(--text-muted)">Avance:</span> ${Math.round((t.progress||0)*100)}%<br>
-          <span style="color:var(--text-muted)">Responsable:</span> ${(window.PurchaseModule && window.PurchaseModule.getResponsableName) ? window.PurchaseModule.getResponsableName(t.responsable) : (t.responsable || '-')}
+      <div style="min-width:240px; padding:4px;">
+        <strong style="font-size:14px; color:var(--indigo); border-bottom:1px solid #444; display:block; padding-bottom:4px; margin-bottom:8px;">📝 ${t.text || ''}</strong>
+        <div style="line-height:1.6; display:flex; flex-direction:column; gap:3px;">
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Proyecto:</span> ${t._projectName || '-'}</div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Controla (Dep.):</span> <span style="color:var(--amber)">${criticalDepInfo}</span></div>
+          <div style="margin:4px 0; border-top:1px dashed #333"></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Inicio Proyectado:</span> <span style="font-size:11px">${getFormattedDate(t._f_inicio_proy)}</span></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Fin Proyectado:</span> <span style="font-size:11px">${getFormattedDate(t._f_fin_proy)}</span></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Duración:</span> ${t.duration} (${t._tipo_dias || 'calendario'})</div>
+          <div style="margin:4px 0; border-top:1px dashed #333"></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Inicio Baseline:</span> <span style="font-size:11px">${getFormattedDate(t._f_inicio_base)}</span></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Iniciada Real:</span> <span style="font-size:11px">${getFormattedDate(t._f_real_ini)}</span></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Completada Real:</span> <span style="font-size:11px">${getFormattedDate(t._f_real_fin)}</span></div>
+          <div style="margin:4px 0; border-top:1px dashed #333"></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Progreso:</span> <span style="color:var(--indigo); font-weight:700">${Math.round((t.progress||0)*100)}%</span></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Estado:</span> ${estadoBadge(t)}</div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Responsable:</span> ${resolveName(t.responsable)}</div>
         </div>
       </div>`;
     };
@@ -627,6 +706,34 @@ window.GanttApp = (() => {
 
     gantt.attachEvent('onAfterProgressDrag', () => updateSummary());
 
+    // --- REORDENAMIENTO AUTOMÁTICO POR INTERACCIONES (Hardened) ---
+    const triggerReorder = (origin) => {
+      if (window._isSorting) return;
+      console.log(`[GanttApp] Trigger reorder from: ${origin}`);
+      setTimeout(() => {
+        window._isSorting = true;
+        gantt.batchUpdate(() => {
+          gantt.sort("start_date", false);
+        });
+        gantt.render();
+        window._isSorting = false;
+      }, 50);
+    };
+
+    gantt.attachEvent('onAfterTaskUpdate', (id, item) => {
+      // 1. Propagación de Fechas de Compras (Herencia)
+      if (item._es_compra) {
+        console.log(`[GanttApp] Propagando fechas de compra ${id} a dependientes...`);
+        propagatePurchaseProjections(id);
+      }
+      
+      // 2. Reordenamiento automático
+      triggerReorder(`Update[${id}]`);
+    });
+    gantt.attachEvent('onAfterLinkAdd',    () => triggerReorder('LinkAdd'));
+    gantt.attachEvent('onAfterLinkDelete', () => triggerReorder('LinkDelete'));
+    gantt.attachEvent('onAfterTaskDelete', () => triggerReorder('TaskDelete'));
+
     gantt.attachEvent('onBeforeTaskDelete', id => {
       // Global Bypass: si está activado, autorizamos sin preguntas (usado por deleteTaskDirect)
       if (window.__ganttBypassConfirm) return true;
@@ -701,6 +808,18 @@ window.GanttApp = (() => {
     return `<span class="badge ${cls}">${estado}</span>`;
   }
 
+  function parseSafeDate(val) {
+    if (val instanceof Date) return val;
+    if (!val) return null;
+    const str = String(val);
+    // Si es formato YYYY-MM-DD (10 caracteres exactos), forzamos hora local a medianoche
+    if (str.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return new Date(str + 'T00:00:00');
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   function dbTaskToGantt(t, color) {
     let finalColor = color || '#6366f1';
     if (typeof _colorMode !== 'undefined' && _colorMode === 'responsable') {
@@ -749,8 +868,8 @@ window.GanttApp = (() => {
       id:           t.id || t.id_tarea,
       parent:       t.id_parent || t.parent || 0,
       text:         t.descripcion || t.tarea || "Tarea",
-      start_date:   startStr,
-      end_date:     endStr,
+      start_date:   parseSafeDate(startStr) || new Date(),
+      end_date:     parseSafeDate(endStr) || undefined,
       duration:     endStr ? undefined : (t.es_compra ? 3 : (parseInt(t.duration) || 1)),
       progress:     t.progress !== undefined ? parseFloat(t.progress) : (parseFloat(t.avance || 0) / 100),
       color:        gColor,
@@ -829,11 +948,10 @@ window.GanttApp = (() => {
         
         // Actualizar posición visual si no es la tarea que se está arrastrando/guardando en este hilo
         if (skipId != targetId) {
-          gt.start_date = gantt.date.parseDate(start, 'xml_date');
+          gt.start_date = parseSafeDate(start);
           if (fin) {
-            const end = new Date(fin + 'T00:00:00');
-            end.setDate(end.getDate() + 1);
-            gt.end_date = end;
+            gt.end_date = parseSafeDate(fin);
+            if (gt.end_date) gt.end_date.setDate(gt.end_date.getDate() + 1);
           } else {
             gt.duration = parseInt(t.duration) || 1;
             // SI cambiamos duración manualmente, conviene limpiar end_date para que DHTMLX recalcule
@@ -901,8 +1019,8 @@ window.GanttApp = (() => {
       id: `pur_${p.id_compra}`, // Identificador único con prefijo
       parent: 0, // Siempre a la raíz en visualización
       text: p.producto,
-      start_date: startStr,
-      end_date: endStr,
+      start_date: parseSafeDate(startStr) || new Date(),
+      end_date: parseSafeDate(endStr) || new Date(),
       color: 'transparent', // Fundamental para ver los segmentos internos
       textColor: '#ffffff',
       _estado: p.estado,
@@ -914,7 +1032,10 @@ window.GanttApp = (() => {
         f_oc: fOc,
         f_comp: fComp,
         f_ent: fEnt,
-        valor_unitario: p.valor_unitario
+        id_solicitante: p.id_solicitante,
+        cantidad: p.cantidad,
+        valor_unitario: p.valor_unitario,
+        id_responsable: p.id_responsable // Añadir ID para trazabilidad
       },
       responsable: p.responsable_nombre || '', 
       _projectName: projectName || p.proyecto_nombre || '',
@@ -922,8 +1043,50 @@ window.GanttApp = (() => {
       type: 'task'
     };
   }
-    
-    gantt.attachEvent("onTaskClick", function(id, e) {
+  /* ── Herencia de Proyecciones de Compras ────────────────────── */
+  function getPurchaseRefDate(purchase) {
+    if (!purchase || !purchase._compra) return null;
+    const c = purchase._compra;
+    // Jerarquía: Entregado > Comprometido > Necesario
+    const refStr = c.f_ent || c.f_comp || c.f_arribo_nec;
+    if (!refStr) return null;
+    return parseSafeDate(refStr);
+  }
+
+  function propagatePurchaseProjections(purchaseId) {
+    const purchase = gantt.getTask(purchaseId);
+    if (!purchase) return;
+    const refDate = getPurchaseRefDate(purchase);
+    if (!refDate) return;
+
+    // Calcular nueva fecha proyectada (+1 día lead time)
+    const newProjStart = new Date(refDate);
+    newProjStart.setDate(newProjStart.getDate() + 1);
+
+    _ignoreUpdate = true; // Evitar disparos recursivos del DataProcessor
+    gantt.eachTask(task => {
+      if (task.id === purchaseId) return;
+      if (task._dependencias) {
+        const deps = task._dependencias.split(',').map(d => d.trim());
+        if (deps.includes(String(purchaseId))) {
+          // 1. Actualizar campo meta
+          task._f_inicio_proy = gantt.date.date_to_str('%Y-%m-%d')(newProjStart);
+          
+          // 2. Mover la barra visual si es necesario
+          // Solo movemos si la nueva proyección es posterior a la actual
+          // (permitimos que el usuario la mueva más tarde, pero no antes de que llegue el material)
+          if (task.start_date < newProjStart) {
+            task.start_date = new Date(newProjStart);
+            gantt.updateTask(task.id);
+          }
+        }
+      }
+    });
+    _ignoreUpdate = false;
+    gantt.render();
+  }
+
+  gantt.attachEvent("onTaskClick", function(id, e) {
       if (e.target.closest('.note-col-trigger')) {
         const trueId = e.target.closest('.note-col-trigger').dataset.id;
         if (window.UI && window.UI.openNotesModal) {
@@ -1273,6 +1436,12 @@ window.GanttApp = (() => {
       
       // Ordenamiento cronológico para mezclar obras y compras de forma natural
       gantt.sort("start_date", false);
+
+      // 3. PASO EXTRA: Propagar proyecciones de compras cargadas
+      gtasks.forEach(t => {
+        if (t._es_compra) propagatePurchaseProjections(t.id);
+      });
+
       addMarkers();
       
       // Ampliar la linea de tiempo para poder navegar hacia fechas vacías
@@ -1338,7 +1507,13 @@ window.GanttApp = (() => {
     gantt.parse({ data: allGtasks, links });
     
     // Ordenamiento cronológico global
+    console.log("[GanttApp] Aplicando ordenamiento cronológico inicial...");
     gantt.sort("start_date", false);
+
+    // 3. PASO EXTRA: Propagar proyecciones de compras globales cargadas
+    allGtasks.forEach(t => {
+      if (t._es_compra) propagatePurchaseProjections(t.id);
+    });
     
     // Summary also gives us dates
     const summary = updateSummary();
@@ -1413,6 +1588,7 @@ window.GanttApp = (() => {
     gantt.parse({ data: items, links: [] }); 
     
     addMarkers();
+    gantt.sort("start_date", false);
     gantt.render();
     setTimeout(() => centerToday(), 150);
     updateSummary();
@@ -1491,6 +1667,10 @@ window.GanttApp = (() => {
         cantidad:        payload.cantidad,
         valor_unitario:  payload.valor_unitario
       };
+
+      if (payload.id_responsable && window.PurchaseModule && window.PurchaseModule.getResponsableName) {
+        task.responsable = window.PurchaseModule.getResponsableName(payload.id_responsable);
+      }
       _ignoreUpdate = true;  // No disparar el DataProcessor
       gantt.updateTask(gId);
       _ignoreUpdate = false;

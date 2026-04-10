@@ -214,6 +214,15 @@ window.UI = (() => {
       return html;
     }
 
+    // Nuevo helper: Solo responsables (sin equipos/sub) para el campo Responsable de Compra
+    function buildResponsableOnlyOptions(selectedId) {
+      let html = '<option value="">Seleccionar responsable...</option>';
+      if (responsables.length) {
+        html += responsables.map(r => `<option value="${r.id_resp}" ${r.id_resp == selectedId ? 'selected' : ''}>${r.nombre}</option>`).join('');
+      }
+      return html;
+    }
+
     // Conectar listeners de auto-estado a los campos de fecha
     function bindEstadoListeners() {
       ['field-pur-f-oc', 'field-pur-f-entregado'].forEach(id => {
@@ -245,6 +254,9 @@ window.UI = (() => {
 
         // Solicitante (responsables + subresponsables)
         document.getElementById('field-pur-solicitante').innerHTML = buildPersonOptions(p.id_solicitante);
+
+        // Responsable de Compra (solo responsables principales)
+        document.getElementById('field-pur-responsable').innerHTML = buildResponsableOnlyOptions(p.id_responsable);
 
         // Cantidades
         document.getElementById('field-pur-cantidad').value = p.cantidad      || 1;
@@ -293,6 +305,9 @@ window.UI = (() => {
 
       // Solicitante
       document.getElementById('field-pur-solicitante').innerHTML = buildPersonOptions(null);
+
+      // Responsable
+      document.getElementById('field-pur-responsable').innerHTML = buildResponsableOnlyOptions(null);
 
       // Estado inicial
       updateEstadoDisplay();
@@ -349,6 +364,7 @@ window.UI = (() => {
         fecha_arribo_necesaria: arriboVal,
         id_proyecto:            projId,
         id_solicitante:         idSolicitante,
+        id_responsable:         parseInt(document.getElementById('field-pur-responsable').value) || null,
         cantidad:               parseFloat(document.getElementById('field-pur-cantidad').value) || 1,
         valor_unitario:         parseFloat(document.getElementById('field-pur-valor').value)    || 0,
         estado:                 document.getElementById('field-pur-estado').value || 'solicitada',
@@ -370,6 +386,14 @@ window.UI = (() => {
           const [pur, tks] = await Promise.all([API.getPurchases(), API.getTasks()]);
           window.GanttApp.loadPurchasesView(pur, tks);
           
+          // REORDENAMIENTO POST-CREACIÓN (Asíncrono para asegurar renderizado)
+          setTimeout(() => {
+            if (window.gantt) {
+              gantt.sort("start_date", false);
+              gantt.render();
+            }
+          }, 10);
+
           updateActiveViewBtn(document.getElementById('btn-view-purchases'));
           const pv = document.getElementById('purchases-view');
           if (pv) pv.style.display = 'flex';
@@ -922,6 +946,10 @@ window.UI = (() => {
 
         // DISPARAR DATA PROCESSOR (action: "update")
         gantt.updateTask(editingTaskId);
+        setTimeout(() => {
+          gantt.sort("start_date", false);
+          gantt.render();
+        }, 10);
         toast('Sincronizando cambios...', 'info');
       } else {
         // CREACIÓN: Usar gantt.addTask para que el DataProcessor intercepte (action: "create")
@@ -946,6 +974,10 @@ window.UI = (() => {
 
         // DISPARAR DATA PROCESSOR (action: "create")
         gantt.addTask(newTask, data.id_parent || 0);
+        setTimeout(() => {
+          gantt.sort("start_date", false);
+          gantt.render();
+        }, 10);
         toast('Creando tarea...', 'info');
       }
       closeTaskModal();
