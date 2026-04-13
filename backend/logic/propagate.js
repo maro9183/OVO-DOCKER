@@ -35,7 +35,7 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
   // Tareas que tienen taskId como predecesora
   // CAMBIO: Aseguramos traer 'duration' en lugar de 'duracion_dias'
   const [dependents] = await conn.execute(
-    `SELECT t.id_tarea, t.duration, t.es_compra,
+    `SELECT t.id_tarea, t.duracion_dias, t.es_compra,
             c.cantidad, c.valor_unitario, c.fecha_solicitud, c.fecha_arribo_necesaria, 
             c.fecha_oc_emitida, c.fecha_comprometida, c.fecha_entregado
      FROM tareas t
@@ -64,16 +64,17 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
     // Buscar la fecha de fin más lejana de todos los predecesores
     const maxFin = predRows.reduce((max, row) => {
       let refDate;
+      
       if (row.es_compra || !row.id_tarea) {
-        const d1 = parseDate(row.fecha_arribo_necesaria) || new Date(0);
-        const d2 = parseDate(row.fecha_comprometida) || new Date(0);
-        const d3 = parseDate(row.fecha_entregado) || new Date(0);
-        refDate = new Date(Math.max(d1, d2, d3));
+        // Prioridad COMPRAS: Realidad > Promesa > Plan
+        refDate = parseDate(row.fecha_entregado || row.fecha_comprometida || row.fecha_arribo_necesaria);
       } else {
-        // Priorizar la fecha completada (realidad) y si no, la proyectada
-        refDate = parseDate(row.fecha_completada || row.fecha_fin_proyectada) || new Date(0);
+        // Prioridad TAREAS: Realidad > Proyección
+        refDate = parseDate(row.fecha_completada || row.fecha_fin_proyectada);
       }
-      return refDate > max ? refDate : max;
+
+      const currentRef = refDate || new Date(0);
+      return currentRef > max ? currentRef : max;
     }, new Date(0));
 
     // La tarea dependiente inicia AL DÍA SIGUIENTE calendario de la última predecesora
@@ -81,7 +82,7 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
 
     const newProyectada = formatDate(maxFin);
     // Calculamos el fin sumando la duración inmutable (en días naturales)
-    const newFinProy    = formatDate(calcFechaFin(maxFin, dep.duration));
+    const newFinProy    = formatDate(calcFechaFin(maxFin, dep.duracion_dias));
 
     // UPDATE: Pisamos solo las proyectadas. NUNCA la fecha_inicio (Baseline) ni la duration.
     await conn.execute(

@@ -66,16 +66,17 @@ async function calcEffectiveStart(conn, tareaId, fecha_inicio, tipo_dias) {
   if (predRows.length === 0) return { effectiveStart: fecha_inicio, fechaInicioProy: null };
   const maxFin = predRows.reduce((max, row) => {
     let refDate;
+    
     if (row.es_compra || !row.id_tarea) {
-      const d1 = parseDate(row.fecha_arribo_necesaria) || new Date(0);
-      const d2 = parseDate(row.fecha_comprometida) || new Date(0);
-      const d3 = parseDate(row.fecha_entregado) || new Date(0);
-      refDate = new Date(Math.max(d1, d2, d3));
-    } else { 
-      // Priorizar la fecha completada (realidad). Si es null o vacía, usar la proyectada (teoría).
-      refDate = parseDate(row.fecha_completada || row.fecha_fin_proyectada) || new Date(0); 
+      // Prioridad COMPRAS: Realidad > Promesa > Plan
+      refDate = parseDate(row.fecha_entregado || row.fecha_comprometida || row.fecha_arribo_necesaria);
+    } else {
+      // Prioridad TAREAS: Realidad > Proyección
+      refDate = parseDate(row.fecha_completada || row.fecha_fin_proyectada);
     }
-    return refDate > max ? refDate : max;
+
+    const currentRef = refDate || new Date(0);
+    return currentRef > max ? currentRef : max;
   }, new Date(0));
   maxFin.setUTCDate(maxFin.getUTCDate() + 1);
   if (tipo_dias === 'laboral' && maxFin.getUTCDay() === 0) maxFin.setUTCDate(maxFin.getUTCDate() + 1);
