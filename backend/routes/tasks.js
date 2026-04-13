@@ -327,6 +327,11 @@ router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, 
     }
     req.body.duracion_dias = req.body.duracion_dias || 1;
     
+    // Protocol Converter: Map duration to duracion_dias
+    if (req.body.duration !== undefined) {
+      req.body.duracion_dias = Number(req.body.duration);
+    }
+    
     req.body.avance = (req.body.progress !== undefined) ? Math.round(parseFloat(req.body.progress) * 100) : (req.body.avance || 0);
 
     // 2. Mapeo de campos personalizados (quitando el prefijo de DHTMLX)
