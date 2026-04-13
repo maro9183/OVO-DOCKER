@@ -1,8 +1,6 @@
 /**
  * Lógica de cálculo de fechas.
- * tipo_dias:
- *   'calendario' → cuenta todos los días (incluye domingos)
- *   'laboral'    → cuenta Lun-Sáb (salta domingos)
+ * Modificado para usar ESTRICTAMENTE días naturales corridos (calendario).
  */
 
 function parseDate(d) {
@@ -27,27 +25,18 @@ function formatDate(d) {
   return dt.toISOString().split('T')[0];
 }
 
-function calcFechaFin(startDate, duracionDias, tipoDias) {
+/**
+ * Calcula la fecha de fin sumando la duración (días naturales) a la fecha de inicio.
+ * Se resta 1 porque el día de inicio cuenta como el día 1 de ejecución.
+ */
+function calcFechaFin(startDate, duration) {
   const d = parseDate(startDate);
-  if (!d || !duracionDias) return null;
+  if (!d || !duration) return null;
 
-  const days = parseInt(duracionDias, 10);
-
-  if (tipoDias === 'laboral') {
-    // El primer día (inicio) cuenta como día 1 si no es domingo.
-    // Si el inicio fuera domingo lo salteamos antes de empezar.
-    while (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
-
-    // Ahora avanzamos (days - 1) días laborales más (Lun–Sáb).
-    let remaining = days - 1;
-    while (remaining > 0) {
-      d.setUTCDate(d.getUTCDate() + 1);
-      if (d.getUTCDay() !== 0) remaining--;  // no cuenta domingos
-    }
-  } else {
-    // Calendario: fecha_fin = inicio + (duracion - 1) días
-    d.setUTCDate(d.getUTCDate() + days - 1);
-  }
+  const days = parseInt(duration, 10);
+  
+  // Calendario puro: fecha_fin = inicio + (duracion - 1) días
+  d.setUTCDate(d.getUTCDate() + days - 1);
 
   return d;
 }

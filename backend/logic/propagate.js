@@ -2,8 +2,6 @@ const { calcFechaFin, calcEstado, formatDate, parseDate } = require('./dates');
 
 /**
  * Detecta si agregar newDepId como dependencia de sourceId crearía un ciclo.
- * Hace BFS desde newDepId siguiendo sus propias dependencias en tabla `dependencias`.
- * Si llega a sourceId → ciclo detectado.
  */
 async function detectCycle(conn, sourceId, newDepId) {
   const visited = new Set();
@@ -28,17 +26,16 @@ async function detectCycle(conn, sourceId, newDepId) {
 
 /**
  * Propaga cambios en cascada a todas las tareas que dependen de taskId.
- * Usa BFS con un Set de visitados para evitar loops.
- * Lee dependencias desde tabla normalizada.
- * Devuelve array con todas las tareas actualizadas.
+ * Usa el esquema estricto: duration (inmutable), fecha_inicio_proyectada y fecha_fin_proyectada.
  */
 async function propagateTasks(conn, taskId, visited = new Set()) {
   if (visited.has(taskId)) return [];
   visited.add(taskId);
 
-  // Tareas que tienen taskId como predecesora (en tabla normalizada)
+  // Tareas que tienen taskId como predecesora
+  // CAMBIO: Aseguramos traer 'duration' en lugar de 'duracion_dias'
   const [dependents] = await conn.execute(
-    `SELECT t.*,
+    `SELECT t.id_tarea, t.duration, t.es_compra,
             c.cantidad, c.valor_unitario, c.fecha_solicitud, c.fecha_arribo_necesaria, 
             c.fecha_oc_emitida, c.fecha_comprometida, c.fecha_entregado
      FROM tareas t
@@ -51,9 +48,9 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
   const affected = [];
 
   for (const dep of dependents) {
-    // Obtener todos los predecesores de esta tarea
+    // Obtener todos los predecesores de esta tarea hija
     const [predRows] = await conn.execute(
-      `SELECT d.id_predecesora, t.id_tarea, t.es_compra, t.fecha_fin_proyectada,
+      `SELECT d.id_predecesora, t.id_tarea, t.es_compra, t.fecha_fin_proyectada, t.fecha_completada,
               c.fecha_arribo_necesaria, c.fecha_comprometida, c.fecha_entregado
        FROM dependencias d
        LEFT JOIN tareas t ON d.id_predecesora = t.id_tarea
@@ -64,7 +61,7 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
 
     if (predRows.length === 0) continue;
 
-    // La tarea dependiente inicia AL DÍA SIGUIENTE de la última predecesora proyectada
+    // Buscar la fecha de fin más lejana de todos los predecesores
     const maxFin = predRows.reduce((max, row) => {
       let refDate;
       if (row.es_compra || !row.id_tarea) {
@@ -73,21 +70,20 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
         const d3 = parseDate(row.fecha_entregado) || new Date(0);
         refDate = new Date(Math.max(d1, d2, d3));
       } else {
-        refDate = parseDate(row.fecha_fin_proyectada) || new Date(0);
+        // Priorizar la fecha completada (realidad) y si no, la proyectada
+        refDate = parseDate(row.fecha_completada || row.fecha_fin_proyectada) || new Date(0);
       }
       return refDate > max ? refDate : max;
     }, new Date(0));
 
+    // La tarea dependiente inicia AL DÍA SIGUIENTE calendario de la última predecesora
     maxFin.setUTCDate(maxFin.getUTCDate() + 1);
 
-    // Si tipo_dias es laboral y cae en domingo, saltear al lunes
-    if (dep.tipo_dias === 'laboral' && maxFin.getUTCDay() === 0) {
-      maxFin.setUTCDate(maxFin.getUTCDate() + 1);
-    }
-
     const newProyectada = formatDate(maxFin);
-    const newFinProy    = formatDate(calcFechaFin(maxFin, dep.duracion_dias, dep.tipo_dias));
+    // Calculamos el fin sumando la duración inmutable (en días naturales)
+    const newFinProy    = formatDate(calcFechaFin(maxFin, dep.duration));
 
+    // UPDATE: Pisamos solo las proyectadas. NUNCA la fecha_inicio (Baseline) ni la duration.
     await conn.execute(
       `UPDATE tareas
        SET fecha_inicio_proyectada = ?, fecha_fin_proyectada = ?
@@ -98,7 +94,7 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
     const updated = { ...dep, fecha_inicio_proyectada: newProyectada, fecha_fin_proyectada: newFinProy };
     affected.push(updated);
 
-    // Recursión para dependientes de este dependiente
+    // Recursión para dependientes de este dependiente (el dominó sigue cayendo)
     const subAffected = await propagateTasks(conn, dep.id_tarea, visited);
     affected.push(...subAffected);
   }

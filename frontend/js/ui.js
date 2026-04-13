@@ -13,6 +13,7 @@ window.UI = (() => {
   let editingSubrespId = null;
   let editingRecursoId = null;
   let notesTaskId    = null;
+  let localDepsIds   = []; // Estado local para dependencias antes de guardar
 
   /* ── Toast ─────────────────────────────────────────────── */
   function toast(msg, type = 'info') {
@@ -121,8 +122,7 @@ window.UI = (() => {
       document.getElementById('project-badge').style.color = color;
       document.getElementById('project-badge').style.background = color + '22';
 
-      // Tarea: recargar lista para el modal de dependencias
-      allTasks = await API.getProjectTasks(id);
+      // Tarea: ya No recargamos allTasks para el modal; la memoria global persiste.
       renderProjectList();
       showMainUI();
     } catch (e) { toast('Error al cargar tareas', 'error'); console.error('[selectProject] Error:', e); }
@@ -655,7 +655,7 @@ window.UI = (() => {
   }
 
   /* ── Task Modal ─────────────────────────────────────────── */
-  function openTaskModal(param) {
+  async function openTaskModal(param) {
     // param puede ser id (number) o ganttTask (object del dhtmlx)
     let task_id = null;
     let ganttTask = null;
@@ -697,19 +697,8 @@ window.UI = (() => {
     document.getElementById('field-fecha-inicio').disabled = (!isAdmin && isEditing);
     // document.getElementById('field-duracion').disabled = (!isAdmin && isEditing); // La duración permitimos editarla para desplazar la proyección
 
-    // Duración: priorizar drag del gantt
-    let durVal = raw?.duration || ganttTask?.duration || 1;
-    if (ganttTask && ganttTask.start_date && ganttTask.end_date) {
-      let bDays = 0;
-      let cd = new Date(ganttTask.start_date);
-      let ed = new Date(ganttTask.end_date);
-      while (cd < ed) {
-        let isLab = raw?.tipo_dias || ganttTask?._tipo_dias || 'calendario';
-        if (isLab !== 'laboral' || cd.getDay() !== 0) bDays++;
-        cd.setDate(cd.getDate() + 1);
-      }
-      durVal = Math.max(1, bDays);
-    }
+    // Duración: protegida mediante alias duracion_estricta para evitar hijacking de DHTMLX
+    const durVal = raw?.duration || ganttTask?.duracion_estricta || raw?.duration || 1;
     f('field-duracion', durVal);
 
     // Avance
@@ -747,9 +736,9 @@ window.UI = (() => {
     updateParentSelect(currentProjId, raw?.id_parent);
 
     const parentSel = document.getElementById('field-parent');
-    parentSel.onchange = () => {
+    parentSel.onchange = async () => {
       const pId = parentSel.value;
-      renderDependenciasSelect('', projSel.value, pId);
+      await renderDependenciasSelect('');
       
       // Herencia de responsable y equipo desde el padre
       if (pId) {
@@ -791,13 +780,11 @@ window.UI = (() => {
     document.querySelectorAll('input[name="tipo_dias"]').forEach(r => { r.checked = r.value === tipo; });
 
     renderRecursosSelect(raw?.recursos || '');
-    renderDependenciasSelect(raw?.dependencias || '', projSel.value, raw?.id_parent || '');
     
-    projSel.onchange = () => {
-      renderDependenciasSelect('', projSel.value, '');
-      updateParentSelect(projSel.value, ''); // Actualizar padres al cambiar proyecto
-    };
-
+    // Inicializar estado local de dependencias
+    localDepsIds = (raw?.dependencias || '').split(',').map(d => d.trim()).filter(Boolean);
+    renderDependenciasList();
+    
     document.getElementById('modal-task').classList.remove('hidden');
     document.getElementById('field-descripcion').focus();
 
@@ -833,26 +820,99 @@ window.UI = (() => {
     wrap.innerHTML = `<select class="form-control" style="height:110px; padding:4px" multiple>${options}</select>`;
   }
 
-  function renderDependenciasSelect(selected, projectId, parentId) {
+  function renderDependenciasList() {
     const wrap = document.getElementById('deps-wrap');
-    const selIds = (selected || '').split(',').map(d => d.trim()).filter(Boolean);
-    const pId = parentId ? parseInt(parentId) : null;
-    
-    // allTasks incluye Tareas y Compras vinculadas en la vista actual
-    const available = allTasks.filter(t => 
-      t.id != editingTaskId && 
-      t.id_proyecto == projectId &&
-      (t._es_compra || t.id_parent == pId || (!t.id_parent && !pId))
-    );
-    if (!available.length) {
-      wrap.innerHTML = '<span style="color:var(--text-dim);font-size:11px">No hay otras tareas/compras en este nivel</span>';
+    if (!localDepsIds.length) {
+      wrap.innerHTML = '<div style="color:var(--text-dim);font-size:11px;text-align:center;padding:10px;">Sin dependencias.</div>';
       return;
     }
-    const options = available.map(t => {
-      const icon = t._es_compra ? '🛒' : '🏗️';
-      return `<option value="${t.id}" ${selIds.includes(String(t.id)) ? 'selected' : ''}>${icon} ${t.text || t.descripcion || t.tarea || t.producto}</option>`;
-    }).join('');
-    wrap.innerHTML = `<select class="form-control" style="height:110px; padding:4px" multiple>${options}</select>`;
+
+    let html = '';
+    localDepsIds.forEach(id => {
+      // Intentamos buscar la tarea en allTasks o directamente en el motor del Gantt si existe
+      let t = allTasks.find(x => x.id == id);
+      if (!t && window.gantt && gantt.isTaskExists(id)) {
+        t = gantt.getTask(id);
+      }
+
+      if (t) {
+        const proj = projects.find(p => p.id_proyecto == t.id_proyecto);
+        const dotColor = proj ? proj.color : '#94a3b8';
+        html += `
+          <div class="dep-row" data-id="${id}">
+            <div class="dep-row-info">
+              <div class="dep-row-name">
+                <span class="dep-dot" style="background:${dotColor}"></span>
+                ${t.text || t.tarea || 'Tarea'}
+              </div>
+              <div class="dep-row-proj">${proj ? proj.nombre_proyecto : 'Proyecto Externo'}</div>
+            </div>
+            <button type="button" class="btn-remove-dep" title="Quitar dependencia">×</button>
+          </div>
+        `;
+      }
+    });
+    wrap.innerHTML = html;
+
+    // Listeners de borrado
+    wrap.querySelectorAll('.btn-remove-dep').forEach(btn => {
+      btn.onclick = (e) => {
+        const id = e.target.closest('.dep-row').dataset.id;
+        localDepsIds = localDepsIds.filter(x => x != id);
+        renderDependenciasList();
+      };
+    });
+  }
+
+  function openAddDepModal() {
+    const modal = document.getElementById('modal-add-dependency');
+    const projSel = document.getElementById('add-dep-project');
+    const taskSel = document.getElementById('add-dep-task');
+
+    // Poblar proyectos únicos desde la memoria global de tareas
+    // O mejor, desde la lista de proyectos global que ya tenemos
+    projSel.innerHTML = '<option value="">-- Seleccionar Proyecto --</option>';
+    projects.forEach(p => {
+      projSel.innerHTML += `<option value="${p.id_proyecto}">${p.nombre_proyecto}</option>`;
+    });
+
+    taskSel.innerHTML = '<option value="">-- Elige un proyecto primero --</option>';
+    taskSel.disabled = true;
+
+    projSel.onchange = () => {
+      const pId = projSel.value;
+      if (!pId) {
+        taskSel.innerHTML = '<option value="">-- Elige un proyecto primero --</option>';
+        taskSel.disabled = true;
+        return;
+      }
+
+      // Filtrar tareas por proyecto desde el catálogo GLOBAL en memoria (allTasks)
+      const filtered = allTasks.filter(t => 
+        (t.id_proyecto || t._raw?.id_proyecto) == pId && 
+        (t.id || t.id_tarea) != editingTaskId &&
+        !localDepsIds.includes(String(t.id || t.id_tarea))
+      );
+
+      taskSel.innerHTML = filtered.length 
+        ? '<option value="">-- Seleccionar Tarea --</option>' + filtered.map(t => `<option value="${t.id || t.id_tarea}">${t.text || t.tarea}</option>`).join('')
+        : '<option value="">No hay tareas disponibles</option>';
+      taskSel.disabled = false;
+    };
+
+    modal.classList.remove('hidden');
+  }
+
+  function confirmAddDep() {
+    const taskSel = document.getElementById('add-dep-task');
+    const val = taskSel.value;
+    if (!val) { toast('Selecciona una tarea', 'error'); return; }
+
+    if (!localDepsIds.includes(String(val))) {
+      localDepsIds.push(String(val));
+      renderDependenciasList();
+    }
+    document.getElementById('modal-add-dependency').classList.add('hidden');
   }
 
   function toIsoDate(val) {
@@ -874,10 +934,7 @@ window.UI = (() => {
     
     // Captura específica por contenedor para evitar errores si cambia el orden del DOM
     const recSelect = document.querySelector('#recursos-wrap select');
-    const depSelect = document.querySelector('#deps-wrap select');
-    
     const recIds = recSelect ? Array.from(recSelect.selectedOptions).map(o => o.value) : [];
-    const depIds = depSelect ? Array.from(depSelect.selectedOptions).map(o => o.value) : [];
     
     return {
       id_proyecto:         +document.getElementById('field-proyecto').value,
@@ -896,7 +953,7 @@ window.UI = (() => {
       recursos:            recIds.join(',') || null,
       tipo_dias:           tipoDias,
       avance:              +document.getElementById('field-avance').value,
-      dependencias:        depIds.join(',') || null,
+      dependencias:        localDepsIds.join(',') || null,
       es_compra:           0,
       compraData:          null
     };
@@ -1686,6 +1743,16 @@ window.UI = (() => {
 
     // Guardar tarea
     document.getElementById('btn-save-task').addEventListener('click', saveTask);
+
+    // u25bau25ba Gestión de Dependencias (Dos Modales)
+    document.getElementById('btn-open-add-dep').addEventListener('click', openAddDepModal);
+    document.getElementById('btn-confirm-add-dep').addEventListener('click', confirmAddDep);
+    document.getElementById('btn-close-add-dep').addEventListener('click', () => {
+      document.getElementById('modal-add-dependency').classList.add('hidden');
+    });
+    document.getElementById('btn-cancel-add-dep').addEventListener('click', () => {
+      document.getElementById('modal-add-dependency').classList.add('hidden');
+    });
     
     // Abrir notas rápidamente desde el modal de tarea
     document.getElementById('btn-open-notes-quick').addEventListener('click', (e) => {

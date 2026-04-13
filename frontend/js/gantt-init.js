@@ -130,7 +130,7 @@ window.GanttApp = (() => {
     gantt.config.min_duration  = 86400000; // 1 day in ms
     gantt.config.drag_links    = true;
     gantt.config.drag_progress = true;
-    gantt.config.drag_resize   = true;
+    gantt.config.drag_resize   = false; // Protegemos duración inmutable, editar solo en modal
     gantt.config.drag_move     = true;
     gantt.config.show_errors   = false;
     gantt.config.autosize      = false;
@@ -293,11 +293,27 @@ window.GanttApp = (() => {
           return `<div class="${className}" style="position:absolute; left:${left}px; top:${topOffset}px; width:${width}px; height:${height}px;"></div>`;
         };
 
-        // 1. Capa Baseline
+        // 1. Marca Baseline (Línea punteada)
+        if (task._f_inicio_base) {
+          const dBase = gantt.date.parseDate(task._f_inicio_base, "xml_date");
+          if (dBase) {
+            const leftBase = gantt.posFromDate(dBase) - gantt.posFromDate(task.start_date);
+            labelsHtml += `<div class="baseline-mark-dashed" style="left:${leftBase}px;"></div>`;
+            
+            // 2. Alerta de Retraso (Segmento naranja) si inicio real/proyectado > baseline
+            const currentStart = task.start_date;
+            if (currentStart > dBase) {
+              const widthDelay = gantt.posFromDate(currentStart) - gantt.posFromDate(dBase);
+              labelsHtml += `<div class="delay-alert-orange" style="position:absolute; left:${leftBase}px; width:${widthDelay}px; height:20px; top:0;"></div>`;
+            }
+          }
+        }
+
+        // 3. Capa Baseline Original (Bloque sutil - Mantener lógica previa)
         if (task._f_inicio_base && task._f_fin_base) {
           labelsHtml += drawAbsoluteSegment(task._f_inicio_base, task._f_fin_base, 'layer-baseline', -2, 24);
         }
-        // 2. Capa Real
+        // 4. Capa Real
         if (task._f_real_ini) {
           const endRealStr = task._f_real_fin || gantt.date.date_to_str("%Y-%m-%d")(new Date());
           labelsHtml += drawAbsoluteSegment(task._f_real_ini, endRealStr, 'layer-real', 18, 6);
@@ -828,36 +844,16 @@ window.GanttApp = (() => {
     
     // El Gantt visual principal se basa en la fecha proyectada (si existe) 
     // o en la fecha de inicio baseline. Preferimos lo que ya venga mapeado.
-    let startStr = t.start_date || t.fecha_inicio_proyectada || t.fecha_inicio;
-    let endStr   = t.end_date || undefined;
-    const finRef = t.fecha_fin_proyectada || t.fecha_fin;
+    // ── ARQUITECTURA: Mapeo Estándar (Sin Bounding Box) ──
+    const startStr = t.fecha_real_iniciada || t.fecha_inicio_proyectada || t.fecha_inicio;
+    const endStr   = t.fecha_completada || t.fecha_fin_proyectada;
 
-    if (t.es_compra === 1) {
-      // Para compras, el contenedor visual debe abarcar desde la solicitud hasta el último hito
-      startStr = t.fecha_solicitud || startStr;
-      const hitos = [
-        t.fecha_arribo_necesaria, 
-        t.fecha_comprometida, 
-        t.fecha_entregado
-      ].filter(Boolean);
-      
-      if (hitos.length > 0) {
-        const maxHito = new Date(Math.max(...hitos.map(h => new Date(h + 'T00:00:00'))));
-        maxHito.setDate(maxHito.getDate() + 1);
-        endStr = gantt.date.date_to_str('%Y-%m-%d')(maxHito);
-      }
-    }
-
-    if (!endStr && finRef) {
-      const end = new Date(finRef + 'T00:00:00');
-      if (!isNaN(end.getTime())) {
-        end.setDate(end.getDate() + 1);
-        endStr = gantt.date.date_to_str('%Y-%m-%d')(end);
-      }
-    }
+    // Para evitar recortes en la caja nativa si la fecha de fin es igual al inicio (duration 1)
+    // DHTMLX necesita que end_date sea el día siguiente (+1)
+    let safeEndDate = parseSafeDate(endStr);
+    if (safeEndDate) safeEndDate.setDate(safeEndDate.getDate() + 1);
 
     const projInfo = _projectsMap[t.id_proyecto] || {};
-
     const isPurchase = t.es_compra === 1;
     
     // Si es compra, usamos la lógica visual de burbujas (color transparente y objeto _compra)
@@ -869,8 +865,8 @@ window.GanttApp = (() => {
       parent:       t.id_parent || t.parent || 0,
       text:         t.descripcion || t.tarea || "Tarea",
       start_date:   parseSafeDate(startStr) || new Date(),
-      end_date:     parseSafeDate(endStr) || undefined,
-      duration:     endStr ? undefined : (t.es_compra ? 3 : (parseInt(t.duration) || 1)),
+      end_date:     safeEndDate || undefined,
+      duracion_estricta: parseInt(t.duration) || 1, // ALIAS PROTEGIDO
       progress:     t.progress !== undefined ? parseFloat(t.progress) : (parseFloat(t.avance || 0) / 100),
       color:        gColor,
       textColor:    gTextColor,
@@ -948,15 +944,16 @@ window.GanttApp = (() => {
         
         // Actualizar posición visual si no es la tarea que se está arrastrando/guardando en este hilo
         if (skipId != targetId) {
-          gt.start_date = parseSafeDate(start);
-          if (fin) {
-            gt.end_date = parseSafeDate(fin);
-            if (gt.end_date) gt.end_date.setDate(gt.end_date.getDate() + 1);
-          } else {
-            gt.duration = parseInt(t.duration) || 1;
-            // SI cambiamos duración manualmente, conviene limpiar end_date para que DHTMLX recalcule
-            delete gt.end_date;
+          const startStr = t.fecha_real_iniciada || t.fecha_inicio_proyectada || t.fecha_inicio;
+          const endStr   = t.fecha_completada || t.fecha_fin_proyectada;
+
+          gt.start_date = parseSafeDate(startStr);
+          if (endStr) {
+            const safeEndDate = parseSafeDate(endStr);
+            safeEndDate.setDate(safeEndDate.getDate() + 1);
+            gt.end_date = safeEndDate;
           }
+          gt.duracion_estricta = parseInt(t.duration) || 1;
         }
   
         gt.progress     = parseFloat(t.avance || 0) / 100;
