@@ -1,6 +1,22 @@
 /* ============================================================
    UI — Modals, toasts, sidebar, app state
    ============================================================ */
+
+/**
+ * Utility: Parsea una fecha de forma segura soportando strings ISO y objetos Date.
+ * Retorna un objeto Date (en UTC para evitar desfases de zona horaria en inputs).
+ */
+window.parseSafeDate = function(val) {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val !== 'string') return null;
+  const isoMatch = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return new Date(isoMatch[1] + '-' + isoMatch[2] + '-' + isoMatch[3] + 'T00:00:00Z');
+  }
+  return gantt.date.parseDate(val, "xml_date");
+};
+
 window.UI = (() => {
   let projects       = [];
   let responsables   = [];
@@ -374,8 +390,8 @@ window.UI = (() => {
         notas:                  document.getElementById('field-pur-notas').value.trim() || null
       };
 
-      // Eliminar nulls
-      Object.keys(payload).forEach(k => { if (payload[k] === null || payload[k] === undefined) delete payload[k]; });
+      // Eliminar solo undefined (null se envía para limpiar campos en la DB)
+      Object.keys(payload).forEach(k => { if (payload[k] === undefined) delete payload[k]; });
 
       document.getElementById('modal-purchase').classList.add('hidden');
 
@@ -510,8 +526,9 @@ window.UI = (() => {
       'En progreso': '#3b82f6',
       'OC emitida': '#f59e0b',
       'Pendiente': '#6366f1',
-      'Bloqueada': '#ef4444',
-      'Retrasada': '#ef4444'
+      'Bloqueada': '#6b7280',
+      'Retrasada': '#ef4444',
+      'Iniciada Atrasada': '#c30010'
     };
     const colors = labels.map(l => colorMap[l] || '#94a3b8');
 
@@ -678,18 +695,21 @@ window.UI = (() => {
     f('field-descripcion', raw?.descripcion || ganttTask?.descripcion || ganttTask?.text || '');
     f('field-costo',       parseFloat(raw?.costo_tarea || ganttTask?.costo_tarea || 0));
 
-    // Fecha inicio / fin Baseline y Real
-    let startVal = raw?.fecha_inicio || today();
-    if (ganttTask && ganttTask.start_date) {
-      startVal = gantt.date.date_to_str('%Y-%m-%d')(ganttTask.start_date);
-    }
-    f('field-fecha-inicio', startVal);
+    // Fecha inicio (Baseline - Plan Original)
+    // EXCLUSIVO de DB o alias persistente. NUNCA del start_date visual.
+    let baselineVal = raw?.fecha_inicio || ganttTask?._f_inicio_base || today();
+    f('field-fecha-inicio', baselineVal);
     
-    // Fechas Multi-Capas (Proyectadas y Reales)
-    f('field-fecha-inicio-proyectada', raw?.fecha_inicio_proyectada || ganttTask?._f_inicio_proy || startVal);
-    f('field-fecha-fin-proyectada', raw?.fecha_fin_proyectada || ganttTask?._f_fin_proy || '');
-    f('field-fecha-real-iniciada', raw?.fecha_real_iniciada || ganttTask?._f_real_ini || '');
-    f('field-fecha-completada', raw?.fecha_completada || ganttTask?._f_real_fin || '');
+    // Fecha inicio Proyectada (Visual)
+    // Refleja exactamente dónde está la barra en el Gantt
+    let visualStart = baselineVal;
+    if (ganttTask && ganttTask.start_date) {
+      visualStart = gantt.date.date_to_str('%Y-%m-%d')(ganttTask.start_date);
+    }
+    f('field-fecha-inicio-proyectada', raw?.fecha_inicio_proyectada || ganttTask?._f_inicio_proy || visualStart);
+    f('field-fecha-fin-proyectada',    raw?.fecha_fin_proyectada || ganttTask?._f_fin_proy || '');
+    f('field-fecha-real-iniciada',     raw?.fecha_real_iniciada || ganttTask?._f_real_ini || '');
+    f('field-fecha-completada',        raw?.fecha_completada || ganttTask?._f_real_fin || '');
 
     // Permisos Baseline (Solo Admin edita)
     const isAdmin = window.Auth && window.Auth.getUser()?.es_admin;
@@ -698,7 +718,7 @@ window.UI = (() => {
     // document.getElementById('field-duracion').disabled = (!isAdmin && isEditing); // La duración permitimos editarla para desplazar la proyección
 
     // Duración: protegida mediante alias duracion_estricta para evitar hijacking de DHTMLX
-    const durVal = raw?.duration || ganttTask?.duracion_estricta || raw?.duration || 1;
+    const durVal = raw?.duracion_dias || ganttTask?.duracion_estricta || 1;
     f('field-duracion', durVal);
 
     // Avance
@@ -797,6 +817,42 @@ window.UI = (() => {
         // PurchaseModule.renderTaskPurchases(editingTaskId); // ELIMINADO: Evita TypeError
       }
     }
+    
+    // Forzar sincronización de proyecciones inicial
+    syncModalProjections();
+  }
+
+  /**
+   * RECALCULO EN VIVO (Frontend UX Refactor)
+   * Replica la lógica del backend: Fin = InicioEfectivo + Duración - 1
+   */
+  function syncModalProjections() {
+    const fieldIniProy = document.getElementById('field-fecha-inicio-proyectada');
+    const fieldIniBase = document.getElementById('field-fecha-inicio');
+    const fieldRealIni = document.getElementById('field-fecha-real-iniciada');
+    const fieldDur     = document.getElementById('field-duracion');
+    const fieldFinProy = document.getElementById('field-fecha-fin-proyectada');
+
+    if (!fieldFinProy) return;
+
+    // 1. Determinar Inicio Efectivo (Prioridad: Real > Proyectada > Baseline)
+    let startStr = fieldRealIni?.value || fieldIniProy?.value || fieldIniBase?.value;
+    if (!startStr) return;
+
+    // 2. Obtener Duración
+    const duration = parseInt(fieldDur?.value) || 1;
+
+    // 3. Calcular Fin
+    // Usamos T00:00:00Z para evitar desfases de zona horaria local
+    const startDate = new Date(startStr + 'T00:00:00Z');
+    if (isNaN(startDate.getTime())) return;
+
+    // Matemática: d + duration - 1
+    const endDate = new Date(startDate.getTime());
+    endDate.setUTCDate(endDate.getUTCDate() + duration - 1);
+
+    // 4. Inyectar en el campo interactivo
+    fieldFinProy.value = endDate.toISOString().split('T')[0];
   }
 
   function updateSubrespSelect(leadId, selectedId = null) {
@@ -986,6 +1042,8 @@ window.UI = (() => {
         // Sincronización de campos custom
         gt.id_proyecto = data.id_proyecto;
         gt.id_parent = data.id_parent;
+        gt.fecha_inicio = data.fecha_inicio;
+        gt._f_inicio_base = data.fecha_inicio;
         // Preservar estado actual si no viene en el form del modal (el modal de tareas no tiene selector de estado aún)
         gt.estado = data.estado || gt.estado || 'sin iniciar';
         gt.tipo_dias = data.tipo_dias;
@@ -1017,6 +1075,7 @@ window.UI = (() => {
           progress: (data.avance || 0) / 100,
           id_proyecto: data.id_proyecto,
           id_parent: data.id_parent,
+          fecha_inicio: data.fecha_inicio,
           estado: data.es_compra ? 'solicitada' : (data.estado || 'sin iniciar'),
           tipo_dias: data.tipo_dias,
           dependencias: data.dependencias,
@@ -1754,6 +1813,19 @@ window.UI = (() => {
       document.getElementById('modal-add-dependency').classList.add('hidden');
     });
     
+    
+    // u25bau25ba Recálculo en Vivo en el Modal (UX Refactor)
+    const modalProjectionTriggers = [
+      'field-duracion', 
+      'field-fecha-inicio', 
+      'field-fecha-real-iniciada', 
+      'field-fecha-inicio-proyectada'
+    ];
+    modalProjectionTriggers.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', syncModalProjections);
+    });
+
     // Abrir notas rápidamente desde el modal de tarea
     document.getElementById('btn-open-notes-quick').addEventListener('click', (e) => {
       e.preventDefault();
@@ -1845,7 +1917,7 @@ window.UI = (() => {
 
     const statusRisk = document.getElementById('status-click-risk');
     if (statusRisk) statusRisk.addEventListener('click', () => {
-      setEstado('Retrasada', '<span class="badge badge-retrasada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Retrasada</span>');
+      setEstado('Atrasada', '<span class="badge badge-retrasada" style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Atrasada</span>');
     });
     
     const statusBlocked = document.getElementById('status-click-blocked');
@@ -1863,37 +1935,9 @@ window.UI = (() => {
 
         if (search && !(task.text || '').toLowerCase().includes(search)) return false;
 
-        // Estado filter: "Retrasada" is a calculated state (start <= today, 0% progress)
-        if (estado) {
-          const p = Math.round((task.progress || 0) * 100);
-          if (estado === 'Retrasada') {
-            const today = new Date(); today.setHours(0,0,0,0);
-            const tStart = new Date(task.start_date); tStart.setHours(0,0,0,0);
-            const isDelayed = (tStart <= today && p === 0 && task._estado !== 'Finalizada');
-            if (!isDelayed) return false;
-          } else if (estado === 'Bloqueada') {
-            let isBlocked = false;
-            if (p < 100 && task._estado !== 'Finalizada') {
-              if (task.$target && task.$target.length > 0) {
-                for (let linkId of task.$target) {
-                  if (gantt.isLinkExists(linkId)) {
-                    const link = gantt.getLink(linkId);
-                    if (gantt.isTaskExists(link.source)) {
-                      const pred = gantt.getTask(link.source);
-                      const predP = Math.round((pred.progress || 0) * 100);
-                      if (predP < 100 && pred._estado !== 'Finalizada') {
-                        isBlocked = true;
-                        break;
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            if (!isBlocked) return false;
-          } else if (task._estado !== estado) {
-            return false;
-          }
+        // Filtro por Estado (Autoritativo desde Backend)
+        if (estado && task._estado !== estado) {
+           return false;
         }
 
         if (resp && task.responsable !== resp) return false;

@@ -33,9 +33,8 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
   visited.add(taskId);
 
   // Tareas que tienen taskId como predecesora
-  // CAMBIO: Aseguramos traer 'duration' en lugar de 'duracion_dias'
   const [dependents] = await conn.execute(
-    `SELECT t.id_tarea, t.duracion_dias, t.es_compra,
+    `SELECT t.id_tarea, t.duracion_dias, t.es_compra, t.fecha_real_iniciada, t.fecha_inicio,
             c.cantidad, c.valor_unitario, c.fecha_solicitud, c.fecha_arribo_necesaria, 
             c.fecha_oc_emitida, c.fecha_comprometida, c.fecha_entregado
      FROM tareas t
@@ -64,15 +63,11 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
     // Buscar la fecha de fin más lejana de todos los predecesores
     const maxFin = predRows.reduce((max, row) => {
       let refDate;
-      
       if (row.es_compra || !row.id_tarea) {
-        // Prioridad COMPRAS: Realidad > Promesa > Plan
         refDate = parseDate(row.fecha_entregado || row.fecha_comprometida || row.fecha_arribo_necesaria);
       } else {
-        // Prioridad TAREAS: Realidad > Proyección
         refDate = parseDate(row.fecha_completada || row.fecha_fin_proyectada);
       }
-
       const currentRef = refDate || new Date(0);
       return currentRef > max ? currentRef : max;
     }, new Date(0));
@@ -80,9 +75,16 @@ async function propagateTasks(conn, taskId, visited = new Set()) {
     // La tarea dependiente inicia AL DÍA SIGUIENTE calendario de la última predecesora
     maxFin.setUTCDate(maxFin.getUTCDate() + 1);
 
-    const newProyectada = formatDate(maxFin);
-    // Calculamos el fin sumando la duración inmutable (en días naturales)
-    const newFinProy    = formatDate(calcFechaFin(maxFin, dep.duracion_dias));
+    // REGLA SNAP-BACK: El inicio proyectado es el mayor entre la red y su propio Baseline
+    const baselineDate = parseDate(dep.fecha_inicio) || new Date(0);
+    const finalProyStart = (maxFin > baselineDate) ? maxFin : baselineDate;
+
+    const newProyectada = formatDate(finalProyStart);
+    
+    // REGLA DINÁMICA: Si la tarea ya inició en la realidad, el fin se proyecta desde ese inicio real.
+    // De lo contrario, se proyecta desde el nuevo inicio proyectado final.
+    const baseStartForFin = parseDate(dep.fecha_real_iniciada) || finalProyStart;
+    const newFinProy = formatDate(calcFechaFin(baseStartForFin, dep.duracion_dias));
 
     // UPDATE: Pisamos solo las proyectadas. NUNCA la fecha_inicio (Baseline) ni la duration.
     await conn.execute(

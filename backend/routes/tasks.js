@@ -54,7 +54,12 @@ function parseCsvIds(val) {
 // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function calcEffectiveStart(conn, tareaId, fecha_inicio, tipo_dias) {
-  if (!tareaId) return { effectiveStart: fecha_inicio, fechaInicioProy: null };
+  const baseDate = parseDate(fecha_inicio) || new Date();
+  
+  if (!tareaId) {
+    return { effectiveStart: baseDate, fechaInicioProy: formatDate(baseDate) };
+  }
+
   const [predRows] = await conn.execute(
     `SELECT d.id_predecesora, t.id_tarea, t.es_compra, t.fecha_fin_proyectada, t.fecha_completada,
             c.fecha_arribo_necesaria, c.fecha_comprometida, c.fecha_entregado
@@ -63,25 +68,31 @@ async function calcEffectiveStart(conn, tareaId, fecha_inicio, tipo_dias) {
      LEFT JOIN compras c ON d.id_predecesora = CONCAT('pur_', c.id_compra) OR t.id_tarea = c.id_tarea
      WHERE d.id_tarea = ?`, [tareaId]
   );
-  if (predRows.length === 0) return { effectiveStart: fecha_inicio, fechaInicioProy: null };
+  
+  if (predRows.length === 0) {
+    return { effectiveStart: baseDate, fechaInicioProy: formatDate(baseDate) };
+  }
+
   const maxFin = predRows.reduce((max, row) => {
     let refDate;
-    
     if (row.es_compra || !row.id_tarea) {
-      // Prioridad COMPRAS: Realidad > Promesa > Plan
       refDate = parseDate(row.fecha_entregado || row.fecha_comprometida || row.fecha_arribo_necesaria);
     } else {
-      // Prioridad TAREAS: Realidad > Proyección
       refDate = parseDate(row.fecha_completada || row.fecha_fin_proyectada);
     }
-
     const currentRef = refDate || new Date(0);
     return currentRef > max ? currentRef : max;
   }, new Date(0));
-  maxFin.setUTCDate(maxFin.getUTCDate() + 1);
-  if (tipo_dias === 'laboral' && maxFin.getUTCDay() === 0) maxFin.setUTCDate(maxFin.getUTCDate() + 1);
-  const fechaInicioProy = formatDate(maxFin);
-  return { effectiveStart: maxFin, fechaInicioProy };
+
+  // Punto de inicio teórico por red de dependencias
+  const theoStart = new Date(maxFin);
+  theoStart.setUTCDate(theoStart.getUTCDate() + 1);
+  if (tipo_dias === 'laboral' && theoStart.getUTCDay() === 0) theoStart.setUTCDate(theoStart.getUTCDate() + 1);
+  
+  // REGLA SNAP-BACK: La proyección nunca es anterior al Baseline (Plan Original)
+  const finalStart = theoStart > baseDate ? theoStart : baseDate;
+  
+  return { effectiveStart: finalStart, fechaInicioProy: formatDate(finalStart) };
 }
 
 async function syncDependencias(conn, tareaId, nuevasPredIds) {
@@ -98,6 +109,27 @@ async function syncDependencias(conn, tareaId, nuevasPredIds) {
   for (const id of toAdd) await conn.execute('INSERT IGNORE INTO dependencias (id_tarea, id_predecesora) VALUES (?, ?)', [tareaId, id]);
 }
 
+/**
+ * Verifica si una tarea está bloqueada por predecesoras no finalizadas.
+ */
+async function checkIfBlocked(conn, tareaId) {
+  const [preds] = await conn.execute(
+    `SELECT t.fecha_completada, c.fecha_entregado, c.estado as compra_estado
+     FROM dependencias d
+     LEFT JOIN tareas t ON d.id_predecesora = t.id_tarea
+     LEFT JOIN compras c ON d.id_predecesora = CONCAT('pur_', c.id_compra)
+     WHERE d.id_tarea = ?`, [tareaId]
+  );
+  
+  for (const row of preds) {
+    // Es una tarea y no ha completado
+    if (row.fecha_completada === null && row.compra_estado === null) return true;
+    // Es una compra y no ha entregado
+    if (row.compra_estado !== null && row.compra_estado !== 'entregado' && !row.fecha_entregado) return true;
+  }
+  return false;
+}
+
 async function syncRecursos(conn, tareaId, nuevosRecIds) {
   const [current] = await conn.execute('SELECT id_recurso FROM tarea_recursos WHERE id_tarea = ?', [tareaId]);
   const currentIds = current.map(r => r.id_recurso);
@@ -111,6 +143,8 @@ async function applyLazyRescheduling(pool, projectIds = null) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    
+    // 1. Detección de Atrasos Críticos (Mueve la barra a 'Hoy' si la tarea está vencida y no completada)
     let sql = `SELECT id_tarea FROM tareas WHERE fecha_completada IS NULL AND fecha_fin_proyectada < CURDATE()`;
     let params = [];
     if (projectIds && projectIds.length > 0) {
@@ -118,14 +152,33 @@ async function applyLazyRescheduling(pool, projectIds = null) {
       params = projectIds;
     }
     const [overdue] = await conn.execute(sql, params);
-    if (overdue.length > 0) {
-      for (const row of overdue) {
-        await conn.execute(`UPDATE tareas SET fecha_fin_proyectada = CURDATE(), auto_retrasada = 1 WHERE id_tarea = ?`, [row.id_tarea]);
-        await propagateTasks(conn, row.id_tarea);
+    for (const row of overdue) {
+      await conn.execute(`UPDATE tareas SET fecha_fin_proyectada = CURDATE(), auto_retrasada = 1 WHERE id_tarea = ?`, [row.id_tarea]);
+      await propagateTasks(conn, row.id_tarea);
+    }
+
+    // 2. SINCRONIZACIÓN MASIVA DE ESTADOS (Asegura que el campo 'estado' de la DB refleje la nueva lógica)
+    // Realizamos una auditoría completa (incluyendo finalizadas para asegurar consistencia total)
+    let syncSql = `SELECT * FROM tareas`;
+    let syncParams = [];
+    if (projectIds && projectIds.length > 0) {
+      syncSql += ` WHERE id_proyecto IN (${projectIds.map(() => '?').join(',')})`;
+      syncParams = projectIds;
+    }
+    const [activeTasks] = await conn.execute(syncSql, syncParams);
+    for (const task of activeTasks) {
+      const isBlocked = await checkIfBlocked(conn, task.id_tarea);
+      const newStatus = calcEstado(task, isBlocked);
+      if (newStatus !== task.estado) {
+        await conn.execute(`UPDATE tareas SET estado = ? WHERE id_tarea = ?`, [newStatus, task.id_tarea]);
       }
     }
+
     await conn.commit();
-  } catch (err) { await conn.rollback(); } finally { conn.release(); }
+  } catch (err) { 
+    console.error('[LazyRescheduling] Error sincronizando estados:', err);
+    await conn.rollback(); 
+  } finally { conn.release(); }
 }
 
 // â”€â”€â”€ QUERY BUILDERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -324,11 +377,24 @@ router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, 
     
     const { effectiveStart, fechaInicioProy } = await calcEffectiveStart(conn, newTaskId, fecha_inicio, tipo_dias);
     const fechaFinProy = formatDate(calcFechaFin(effectiveStart, duracion_dias, tipo_dias));
-    await conn.execute(`UPDATE tareas SET fecha_inicio_proyectada = ?, fecha_fin_proyectada = ? WHERE id_tarea = ?`, [fechaInicioProy, fechaFinProy, newTaskId]);
+    
+    // AUTOMATIZACIÓN DE ESTADO PARA TAREA NUEVA
+    const isBlocked = await checkIfBlocked(conn, newTaskId);
+    const autoStatus = calcEstado({
+      fecha_completada: req.body.fecha_completada || null,
+      fecha_real_iniciada: req.body.fecha_real_iniciada || null,
+      fecha_inicio_proyectada: fechaInicioProy,
+      fecha_fin_proyectada: fechaFinProy
+    }, isBlocked);
+
+    await conn.execute(
+      `UPDATE tareas SET fecha_inicio_proyectada = ?, fecha_fin_proyectada = ?, estado = ? WHERE id_tarea = ?`, 
+      [fechaInicioProy, fechaFinProy, autoStatus, newTaskId]
+    );
     let summaryTasks = [];
     if (id_parent) summaryTasks = await recalcParentBounds(conn, id_parent);
     await conn.commit();
-    const newTaskRaw = await fetchTaskWithExtras(getPool(), newTaskId);
+    const newTaskRaw = await fetchTaskWithExtras(conn, newTaskId);
     const newTask = mapTaskToDHTMLX(newTaskRaw);
     res.status(201).json({ id: newTaskId, task: newTask, updatedTasks: [newTask, ...summaryTasks.map(mapTaskToDHTMLX)] });
   } catch (err) { await conn.rollback(); res.status(err.status || 500).json({ error: err.message }); } finally { conn.release(); }
@@ -342,11 +408,15 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
     // â”€â”€â”€ SANITIZACIÃ“N BLINDADA (Compatibilidad DHTMLX -> DB) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 1. Mapeo de campos nativos de DHTMLX a las columnas SQL
     if (req.body.text !== undefined) req.body.tarea = req.body.text;
-    if (req.body.start_date !== undefined) req.body.fecha_inicio = req.body.start_date;
+    
+    // PROTECCIÓN DE BASELINE: start_date de Gantt impacta en la proyección
+    if (req.body.start_date !== undefined) {
+      req.body.fecha_inicio_proyectada = req.body.start_date;
+    }
     
     // Protocol Converter: Map duration to duracion_dias
     if (req.body.duration !== undefined) {
-      req.body.duracion_dias = req.body.duration;
+      req.body.duracion_dias = Number(req.body.duration);
     }
     
     if (req.body.progress !== undefined) req.body.avance = Math.round(parseFloat(req.body.progress) * 100);
@@ -396,6 +466,10 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
     let timingChanged = false;
     for (const key of Object.keys(req.body)) {
       if (physicalWhitelist.includes(key)) {
+        // EXCLUIMOS las proyectadas del loop manual: 
+        // Solo el motor de cálculo al final del handler tiene autoridad para setearlas.
+        if (['fecha_inicio_proyectada', 'fecha_fin_proyectada'].includes(key)) continue;
+
         updates.push(`${key} = ?`);
         values.push(req.body[key] === undefined ? null : req.body[key]);
         if (TIMING_FIELDS.includes(key)) timingChanged = true;
@@ -409,13 +483,40 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
 
     const updatedTask = { ...cur, ...req.body };
     const { effectiveStart, fechaInicioProy } = await calcEffectiveStart(conn, id, updatedTask.fecha_inicio, updatedTask.tipo_dias);
-    const fechaFinProy = formatDate(calcFechaFin(effectiveStart, updatedTask.duracion_dias, updatedTask.tipo_dias));
-    await conn.execute(`UPDATE tareas SET fecha_inicio_proyectada = ?, fecha_fin_proyectada = ? WHERE id_tarea = ?`, [fechaInicioProy, fechaFinProy, id]);
+    
+    // REGLA DINÁMICA DE CÁLCULO (SNAP-BACK)
+    // El inicio proyectado es el mayor entre: (Red de dependencias/Baseline) y (Movimiento manual en este request)
+    let finalInicioProy = fechaInicioProy;
+    const manualStartStr = req.body.fecha_inicio_proyectada;
+    if (manualStartStr) {
+      const manualDate = parseDate(manualStartStr);
+      const theoDate   = parseDate(fechaInicioProy);
+      if (manualDate > theoDate) finalInicioProy = manualStartStr;
+    }
+    
+    // El cálculo de fin es AUTORITATIVO por el backend
+    // Se basa en Realidad (si ya inició) o en la proyección final calculada (Baseline/Red)
+    const puntoInicioParaFin = updatedTask.fecha_real_iniciada || finalInicioProy;
+    const finalFinProy = formatDate(calcFechaFin(parseDate(puntoInicioParaFin), updatedTask.duracion_dias));
+
+    // AUTOMATIZACIÓN DE ESTADO
+    const isBlocked = await checkIfBlocked(conn, id);
+    const autoStatus = calcEstado({
+      ...updatedTask,
+      fecha_inicio_proyectada: finalInicioProy,
+      fecha_fin_proyectada: finalFinProy
+    }, isBlocked);
+
+    // Persistencia final de los campos automáticos y calculados
+    await conn.execute(
+      `UPDATE tareas SET fecha_inicio_proyectada = ?, fecha_fin_proyectada = ?, estado = ? WHERE id_tarea = ?`, 
+      [finalInicioProy, finalFinProy, autoStatus, id]
+    );
     const updatedTasks = await propagateTasks(conn, parseInt(id));
     let summaryTasks = [];
     if (updatedTask.id_parent) summaryTasks = await recalcParentBounds(conn, updatedTask.id_parent);
     await conn.commit();
-    const newTaskRaw = await fetchTaskWithExtras(getPool(), id);
+    const newTaskRaw = await fetchTaskWithExtras(conn, id);
     const newTask = mapTaskToDHTMLX(newTaskRaw);
     res.json({ task: newTask, updatedTasks: [newTask, ...updatedTasks.map(mapTaskToDHTMLX), ...summaryTasks.map(mapTaskToDHTMLX)] });
   } catch (err) {

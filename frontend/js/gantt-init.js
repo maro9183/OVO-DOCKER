@@ -159,9 +159,7 @@ window.GanttApp = (() => {
       {
         name: 'text', label: 'Tarea', tree: true, width: '*',
         template: t => {
-          const today = new Date(); today.setHours(0,0,0,0);
-          const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
-          const isDelayed = (tStart <= today && (t.progress || 0) === 0 && t._estado !== 'Finalizada');
+          const isDelayed = (t._estado === 'Atrasada' || t._estado === 'Iniciada Atrasada');
           const color = isDelayed ? 'var(--red)' : 'inherit';
           return `<span style="font-weight:600; color:${color}">${t.text || ''}</span>`;
         }
@@ -319,33 +317,7 @@ window.GanttApp = (() => {
           labelsHtml += drawAbsoluteSegment(task._f_real_ini, endRealStr, 'layer-real', 18, 6);
         }
 
-        // 3. Líneas divisorias
-        const drawVerticalDivider = (dateStr, color, label) => {
-          if (!dateStr) return '';
-          const d = gantt.date.parseDate(dateStr, "xml_date");
-          if (!d) return '';
-          const left = gantt.posFromDate(d) - gantt.posFromDate(task.start_date);
-          return `<div class="task-timeline-divider" style="left:${left}px; background-color:${color};" title="${label}: ${dateStr}"></div>`;
-        };
-
-        let dividersHtml = '';
-        if (task._f_inicio_base && task._f_inicio_base !== task._f_inicio_proy) {
-          dividersHtml += drawVerticalDivider(task._f_inicio_base, 'rgba(255,255,255,0.6)', 'Inicio Base');
-        }
-        if (task._f_inicio_proy) {
-          dividersHtml += drawVerticalDivider(task._f_inicio_proy, 'rgba(14, 165, 233, 0.8)', 'Inicio Proyectado');
-        }
-        if (task._f_real_ini) {
-          dividersHtml += drawVerticalDivider(task._f_real_ini, 'rgba(34, 197, 94, 0.9)', 'Real Iniciada');
-        }
-        if (task._f_fin_proy) {
-          dividersHtml += drawVerticalDivider(task._f_fin_proy, 'rgba(245, 158, 11, 0.8)', 'Fin Proyectada');
-        }
-        if (task._f_real_fin) {
-          dividersHtml += drawVerticalDivider(task._f_real_fin, 'rgba(34, 197, 94, 1)', 'Real Completada');
-        }
-
-        return labelsHtml + dividersHtml;
+        return labelsHtml;
       }
 
       return labelsHtml;
@@ -414,12 +386,14 @@ window.GanttApp = (() => {
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Proyecto:</span> ${t._projectName || '-'}</div>
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Controla (Dep.):</span> <span style="color:var(--amber)">${criticalDepInfo}</span></div>
           <div style="margin:4px 0; border-top:1px dashed #333"></div>
-          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Inicio Proyectado:</span> <span style="font-size:11px">${getFormattedDate(t._f_inicio_proy)}</span></div>
-          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Fin Proyectado:</span> <span style="font-size:11px">${getFormattedDate(t._f_fin_proy)}</span></div>
-          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Duración:</span> ${t.duration} (${t._tipo_dias || 'calendario'})</div>
-          <div style="margin:4px 0; border-top:1px dashed #333"></div>
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Inicio Baseline:</span> <span style="font-size:11px">${getFormattedDate(t._f_inicio_base)}</span></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Inicio Proyectado:</span> <span style="font-size:11px">${getFormattedDate(t._f_inicio_proy)}</span></div>
+          
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Duración:</span> ${t.duracion_estricta} días</div>
+          <div style="margin:4px 0; border-top:1px dashed #333"></div>
+          
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Iniciada Real:</span> <span style="font-size:11px">${getFormattedDate(t._f_real_ini)}</span></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Fin Proyectado:</span> <span style="font-size:11px">${getFormattedDate(t._f_fin_proy)}</span></div>
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Completada Real:</span> <span style="font-size:11px">${getFormattedDate(t._f_real_fin)}</span></div>
           <div style="margin:4px 0; border-top:1px dashed #333"></div>
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Progreso:</span> <span style="color:var(--indigo); font-weight:700">${Math.round((t.progress||0)*100)}%</span></div>
@@ -437,8 +411,6 @@ window.GanttApp = (() => {
       const SAVE_TIMEOUT_MS = 8000;
 
       gantt.createDataProcessor((entity, action, data, id) => {
-        if (_ignoreUpdate) return Promise.resolve({ tid: id });
-
       // ── Semáforo anti-multi-fire ─────────────────────────────────
       const lockKey = `${entity}_${id}`;
       const now = Date.now();
@@ -547,7 +519,9 @@ window.GanttApp = (() => {
         if (action === 'update') {
           const taskPayload = {
             tarea:         taskObj.text,
-            fecha_inicio:  fmt(taskObj.start_date),
+            // PROTECCIÓN DE BASELINE: El movimiento en Gantt impacta en la proyección
+            fecha_inicio_proyectada: fmt(taskObj.start_date),
+            fecha_inicio:  taskObj._f_inicio_base, // Preservar el plan original
             duration:      parseInt(taskObj.duration) || 1,
             avance:        Math.round((taskObj.progress || 0) * 100),
             id_proyecto:   finalProjectId,
@@ -597,6 +571,7 @@ window.GanttApp = (() => {
           const taskPayload = {
             tarea:         taskObj.text,
             fecha_inicio:  fmt(taskObj.start_date),
+            fecha_inicio_proyectada: fmt(taskObj.start_date),
             duration:      taskObj.duration || 1,
             avance:        Math.round((taskObj.progress || 0) * 100),
             id_proyecto:   finalProjectId,
@@ -773,51 +748,22 @@ window.GanttApp = (() => {
   /* ── Helpers ─────────────────────────────────────────────── */
   function estadoBadge(t) {
     let estado = t._estado || 'No comenzada';
-    const p = Math.round((t.progress || 0) * 100);
-    const today = new Date(); today.setHours(0,0,0,0);
 
     if (t._es_compra && t._compra) {
-      // Lógica exclusiva para compras
-      const arriboNec = t._compra.f_arribo_nec ? new Date(t._compra.f_arribo_nec + 'T00:00:00') : null;
-      const entregado = t._compra.f_ent;
-
-      if (!entregado && arriboNec && arriboNec < today) {
-        estado = 'Retrasada';
-      } else if (entregado) {
-        estado = 'Finalizada';
-      }
-    } else {
-      // Lógica normal para tareas de obra
-      const tStart = new Date(t.start_date); tStart.setHours(0,0,0,0);
-      
-      if (tStart <= today && p === 0 && estado !== 'Finalizada') {
-        estado = 'Retrasada';
-      } else if (p < 100 && estado !== 'Finalizada') {
-        // Bloqueadas
-        if (t.$target && t.$target.length > 0) {
-          for (let linkId of t.$target) {
-            if (window.gantt && gantt.isLinkExists && gantt.isLinkExists(linkId)) {
-              const link = gantt.getLink(linkId);
-              if (gantt.isTaskExists(link.source)) {
-                const pred = gantt.getTask(link.source);
-                const predP = Math.round((pred.progress || 0) * 100);
-                if (predP < 100 && pred._estado !== 'Finalizada') {
-                  estado = 'Bloqueada';
-                  break;
-                }
-              }
-            }
-          }
-        }
-      }
+      // Para compras, el estado puede venir como 'entregado', 'solicitada', etc.
+      // Mantenemos el badge visual descriptivo
+      if (t._estado === 'entregado') return `<span class="badge badge-finalizada">Entregado</span>`;
+      if (t._estado === 'retrasada' || t._estado === 'Retrasada') return `<span class="badge badge-retrasada">Retrasada</span>`;
+      return `<span class="badge badge-en-progreso">${t._estado}</span>`;
     }
 
     const map = {
-      'No comenzada': 'badge-no-comenzada',
-      'En progreso':  'badge-en-progreso',
-      'Finalizada':   'badge-finalizada',
-      'Retrasada':    'badge-retrasada',
-      'Bloqueada':    'badge-bloqueada'
+      'No comenzada':      'badge-no-comenzada',
+      'En progreso':       'badge-en-progreso',
+      'Finalizada':        'badge-finalizada',
+      'Atrasada':          'badge-retrasada',
+      'Iniciada Atrasada': 'badge-iniciada-atrasada',
+      'Bloqueada':         'badge-bloqueada'
     };
     
     const cls = map[estado] || 'badge-no-comenzada';
@@ -866,6 +812,7 @@ window.GanttApp = (() => {
       text:         t.descripcion || t.tarea || "Tarea",
       start_date:   parseSafeDate(startStr) || new Date(),
       end_date:     safeEndDate || undefined,
+      duration:     parseInt(t.duration) || 1, // FUERZA LA DURACIÓN DE DB PARA EL POPUP
       duracion_estricta: parseInt(t.duration) || 1, // ALIAS PROTEGIDO
       progress:     t.progress !== undefined ? parseFloat(t.progress) : (parseFloat(t.avance || 0) / 100),
       color:        gColor,
@@ -930,8 +877,10 @@ window.GanttApp = (() => {
     // Usar batchUpdate para atomicidad y evitar múltiples renders
     gantt.batchUpdate(() => {
       updatedTasks.forEach(t => {
-        // Intentar encontrar la tarea, ya sea por ID numérico o con prefijo pur_
-        let targetId = t.id_tarea;
+        // Robusted de detección de ID: SOPORTA TANTO OBJETOS RAW COMO MAPEO DHTMLX
+        let targetId = t.id_tarea || t.id;
+        if (!targetId) return;
+
         if (!gantt.isTaskExists(targetId) && gantt.isTaskExists(`pur_${targetId}`)) {
           targetId = `pur_${targetId}`;
         }
@@ -939,37 +888,42 @@ window.GanttApp = (() => {
         if (!gantt.isTaskExists(targetId)) return;
         const gt = gantt.getTask(targetId);
         
-        const start = t.fecha_inicio_proyectada || t.fecha_inicio;
-        const fin = t.fecha_fin_proyectada || t.fecha_fin;
-        
-        // Actualizar posición visual si no es la tarea que se está arrastrando/guardando en este hilo
-        if (skipId != targetId) {
-          const startStr = t.fecha_real_iniciada || t.fecha_inicio_proyectada || t.fecha_inicio;
-          const endStr   = t.fecha_completada || t.fecha_fin_proyectada;
+        // ── ACTUALIZACIÓN AUTORITATIVA ──
+        // Pisamos las fechas del cliente con lo que calculó el backend
+        // Soportamos campos raw (fecha_inicio_proyectada) y campos mapeados (start_date) del server
+        const startStr = t.fecha_real_iniciada || t.fecha_inicio_proyectada || t.fecha_inicio || t.start_date;
+        const endStr   = t.fecha_completada || t.fecha_fin_proyectada || t.fecha_fin || t.end_date;
 
-          gt.start_date = parseSafeDate(startStr);
-          if (endStr) {
-            const safeEndDate = parseSafeDate(endStr);
-            safeEndDate.setDate(safeEndDate.getDate() + 1);
-            gt.end_date = safeEndDate;
+        gt.start_date = parseSafeDate(startStr);
+        if (endStr) {
+          const safeEndDate = parseSafeDate(endStr);
+          // Si el endStr viene de DHTMLX ya es inclusivo, pero si viene de DB (YYYY-MM-DD) necesita el +1
+          // parseSafeDate maneja strings ISO y los convierte a objetos Date locales
+          if (typeof endStr === 'string' && endStr.length <= 10) {
+             safeEndDate.setDate(safeEndDate.getDate() + 1);
           }
-          gt.duracion_estricta = parseInt(t.duration) || 1;
+          gt.end_date = safeEndDate;
         }
-  
-        gt.progress     = parseFloat(t.avance || 0) / 100;
-        gt._estado      = t.estado;
-        gt._tipo_dias   = t.tipo_dias;
-        gt._dependencias = t.dependencias || '';
-        gt._es_compra   = t.es_compra || 0;
         
-        // Actualizar meta-fechas para capas
-        gt._f_inicio_base = t.fecha_inicio;
-        gt._f_fin_base    = t.fecha_fin;
-        gt._f_inicio_proy = t.fecha_inicio_proyectada;
-        gt._f_fin_proy    = t.fecha_fin_proyectada;
-        gt._f_real_ini    = t.fecha_real_iniciada;
-        gt._f_real_fin    = t.fecha_completada;
-        gt._auto_retrasada = t.auto_retrasada || 0;
+        // Sincronizar duración interna de DHTMLX para evitar desvíos visuales
+        const newDur = parseInt(t.duration) || 1;
+        gt.duration = newDur;
+        gt.duracion_estricta = newDur;
+  
+        gt.progress     = parseFloat(t.avance || (t.progress != null ? t.progress * 100 : 0) || 0) / 100;
+        gt._estado      = t.estado || t._estado;
+        gt._tipo_dias   = t.tipo_dias || t._tipo_dias;
+        gt._dependencias = t.dependencias || t._dependencias || '';
+        gt._es_compra   = t.es_compra || t._es_compra || 0;
+        
+        // Actualizar meta-fechas para capas, modal y tooltips
+        gt._f_inicio_base = t.fecha_inicio || t._f_inicio_base;
+        gt._f_fin_base    = t.fecha_fin || t._f_fin_base;
+        gt._f_inicio_proy = t.fecha_inicio_proyectada || t._f_inicio_proy;
+        gt._f_fin_proy    = t.fecha_fin_proyectada || t._f_fin_proy;
+        gt._f_real_ini    = t.fecha_real_iniciada || t._f_real_ini;
+        gt._f_real_fin    = t.fecha_completada || t._f_real_fin;
+        gt._auto_retrasada = t.auto_retrasada || t._auto_retrasada || 0;
         
         // Si es una compra, actualizar también el objeto interno _compra
         if (gt._es_compra && t.compraData) {
@@ -983,10 +937,10 @@ window.GanttApp = (() => {
   
         gt._raw = t;
   
-        // SOLO disparamos updateTask si NO es la tarea de la transacción activa (evita el loop)
-        if (targetId != skipId) {
-          gantt.updateTask(targetId);
-        }
+        // ── REFRESH VISUAL SIN LOOP ──
+        // Importante: Usamos refreshTask y NO updateTask.
+        // refreshTask redibuja la barra y actualiza tooltips sin disparar el DataProcessor.
+        gantt.refreshTask(targetId);
       });
     });
 

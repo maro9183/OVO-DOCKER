@@ -898,10 +898,13 @@
                   style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Finalizada</span></div>
               <div class="fd-item" data-value="No comenzada" style="padding:3px; cursor:pointer;"><span
                   class="badge badge-no-comenzada"
-                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Pendiente</span></div>
-              <div class="fd-item" data-value="Retrasada" style="padding:3px; cursor:pointer;"><span
+                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">No comenzada</span></div>
+              <div class="fd-item" data-value="Atrasada" style="padding:3px; cursor:pointer;"><span
                   class="badge badge-retrasada"
-                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Retrasada</span></div>
+                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Atrasada</span></div>
+              <div class="fd-item" data-value="Iniciada Atrasada" style="padding:3px; cursor:pointer;"><span
+                  class="badge badge-iniciada-atrasada"
+                  style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Iniciada Atrasada</span></div>
               <div class="fd-item" data-value="Bloqueada" style="padding:3px; cursor:pointer;"><span
                   class="badge badge-bloqueada"
                   style="transform:scale(0.85); transform-origin:left; pointer-events:none;">Bloqueada</span></div>
@@ -996,7 +999,10 @@
   <div class="modal-overlay hidden dhtmlx_modal_box" id="modal-task">
     <div class="modal-box">
       <div class="modal-header" style="justify-content: space-between; align-items: center; display: flex;">
-        <span class="modal-title" id="modal-task-title">Nueva Tarea</span>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="modal-title" id="modal-task-title">Nueva Tarea</span>
+          <div id="modal-status-badge"></div>
+        </div>
         <button class="modal-close" data-close-modal>×</button>
       </div>
       <div class="modal-body">

@@ -41,11 +41,46 @@ function calcFechaFin(startDate, duration) {
   return d;
 }
 
-function calcEstado(avance) {
-  const a = parseFloat(avance) || 0;
-  if (a <= 0)   return 'No comenzada';
-  if (a >= 100) return 'Finalizada';
-  return 'En progreso';
+/**
+ * Calcula el estado de la tarea de forma automática y jerárquica.
+ * Prioridad: Finalizada > Bloqueada > Atraso (Iniciada/Pendiente) > En Progreso.
+ * 
+ * @param {Object} task - Objeto con fechas y progreso
+ * @param {Boolean} isBlocked - Si la red de dependencias está insatisfecha
+ * @returns {String} - Nombre del estado
+ */
+function calcEstado(task, isBlocked = false) {
+  const { 
+    fecha_completada, 
+    fecha_real_iniciada, 
+    fecha_inicio_proyectada, 
+    fecha_fin_proyectada 
+  } = task;
+
+  // 1. FINALIZADA (Solo si tiene fecha real de fin)
+  if (fecha_completada) return 'Finalizada';
+
+  // 2. BLOQUEADA (Si hay predecesores sin terminar)
+  if (isBlocked) return 'Bloqueada';
+
+  // Preparamos fecha de Hoy para comparación (UTC Midnight)
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+
+  // 3. CASO: YA INICIADA
+  if (fecha_real_iniciada) {
+    const fFinProy = parseDate(fecha_fin_proyectada);
+    // Si hoy sobrepasó el fin proyectado sin haber finalizado -> Iniciada Atrasada
+    if (fFinProy && today > fFinProy) return 'Iniciada Atrasada';
+    return 'En progreso';
+  }
+
+  // 4. CASO: PENDIENTE
+  const fIniProy = parseDate(fecha_inicio_proyectada);
+  // Si hoy sobrepasó el inicio proyectado y no ha iniciado -> Atrasada
+  if (fIniProy && today > fIniProy) return 'Atrasada';
+
+  return 'No comenzada';
 }
 
 module.exports = { parseDate, formatDate, calcFechaFin, calcEstado };
