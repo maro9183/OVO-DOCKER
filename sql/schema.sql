@@ -224,7 +224,8 @@ INSERT INTO tareas (id_tarea, id_proyecto, id_parent, id_subresp, id_resp, tarea
 (31,1,NULL,NULL,NULL,'T0031','Fabricación cadena de transporte de huevos','2026-05-01','2026-05-01','2026-08-29',NULL,120,'2026-08-29',NULL,'No comenzada',NULL,0.00,NULL,NULL,0.00, 0.00, 'calendario'),
 (32,1,NULL,NULL,NULL,'T0032','Montaje cadena de transporte de huevos','2026-09-01','2026-09-01','2026-10-31',NULL,60,'2026-10-31',NULL,'No comenzada',NULL,0.00,'31',NULL,0.00, 0.00, 'calendario'),
 (33,2,NULL,NULL,3,'T0037','Cableado de los grupos (montaje bandejas, conexionado a TGBT)','2026-07-05','2026-07-03','2026-07-11',NULL,10,'2026-07-11',NULL,'No comenzada','GMorano@ovobrand.com.ar',0.00,'6',NULL,0.00, 0.00, 'calendario'),
-(36,1,1,1,3,'Prueba','Obra civil','2026-03-01','2026-03-01','2026-06-24','2026-03-01',116,'2026-06-24',NULL,'En progreso','GMorano@ovobrand.com.ar',10.00,NULL,NULL,0.00, 0.00, 'calendario');ULL,0.00,'calendario');
+(36,1,1,1,3,'Prueba','Obra civil','2026-03-01','2026-03-01','2026-06-24','2026-03-01',116,'2026-06-24',NULL,'En progreso','GMorano@ovobrand.com.ar',10.00,NULL,NULL,0.00, 0.00, 'calendario');
+
 
 -- Inserción de dependencias normalizadas (FS = Finish to Start)
 INSERT INTO dependencias (id_tarea, id_predecesora, tipo) VALUES 
