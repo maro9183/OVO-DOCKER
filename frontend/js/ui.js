@@ -718,12 +718,13 @@ window.UI = (() => {
     // document.getElementById('field-duracion').disabled = (!isAdmin && isEditing); // La duración permitimos editarla para desplazar la proyección
 
     // Duración: protegida mediante alias duracion_estricta para evitar hijacking de DHTMLX
-    const durVal = raw?.duracion_dias || ganttTask?.duracion_estricta || 1;
+    // Soporta raw (duracion_dias) y mapped (duration)
+    const durVal = raw?.duracion_dias || raw?.duration || ganttTask?.duracion_estricta || 1;
     f('field-duracion', durVal);
 
     // Avance
     const pAvance = ganttTask?.progress != null ? ganttTask.progress * 100 : 0;
-    const avance  = parseFloat(raw?.avance || pAvance || 0);
+    const avance  = parseFloat(raw?.avance || raw?.progress || pAvance || 0);
     f('field-avance', avance);
     document.getElementById('label-avance').textContent = `${Math.round(avance)}%`;
     document.getElementById('label-avance-r').textContent = `${Math.round(avance)}%`;
@@ -740,20 +741,30 @@ window.UI = (() => {
     function updateParentSelect(projectId, selectedParentId = null) {
       const parentSel = document.getElementById('field-parent');
       parentSel.innerHTML = '<option value="">-- Tarea principal (sin padre) --</option>';
-      allTasks.forEach(t => {
-        if (editingTaskId && t.id_tarea == editingTaskId) return;
-        if (t.id_proyecto != projectId) return; // SOLO TAREAS DEL MISMO PROYECTO
+      
+      // Usar el iterador oficial de DHTMLX para asegurar compatibilidad y evitar TypeErrors
+      gantt.eachTask(t => {
+        // Ignorar la propia tarea para evitar autoreferencia
+        if (editingTaskId && t.id == editingTaskId) return;
+        // Ignorar compras (prefixed with pur_) ya que no deben ser padres de obra
+        if (String(t.id).startsWith('pur_')) return;
         
+        // FILTRO POR PROYECTO: Solo mostrar tareas del mismo proyecto
+        const tProjId = t.id_proyecto || (t._raw ? t._raw.id_proyecto : null);
+        if (projectId && tProjId && tProjId != projectId) return;
+
         const opt = document.createElement('option');
-        opt.value = t.id_tarea;
-        opt.textContent = t.descripcion || "(Sin nombre)";
+        opt.value = t.id;
+        opt.textContent = t.text || t.tarea || "(Sin nombre)";
         parentSel.appendChild(opt);
       });
       parentSel.value = selectedParentId || '';
     }
 
     const currentProjId = raw?.id_proyecto || projSel.value;
-    updateParentSelect(currentProjId, raw?.id_parent);
+    // Soporta tanto raw.id_parent como ganttTask.parent (DHTMLX name)
+    const currentParentId = raw?.id_parent || ganttTask?.parent || 0;
+    updateParentSelect(currentProjId, currentParentId);
 
     const parentSel = document.getElementById('field-parent');
     parentSel.onchange = async () => {
@@ -1040,8 +1051,9 @@ window.UI = (() => {
         gt.progress = (data.avance || 0) / 100;
         
         // Sincronización de campos custom
-        gt.id_proyecto = data.id_proyecto;
+        // Sincronización de jerarquía (Dual-Key Sync)
         gt.id_parent = data.id_parent;
+        gt.parent    = data.id_parent || 0;
         gt.fecha_inicio = data.fecha_inicio;
         gt._f_inicio_base = data.fecha_inicio;
         // Preservar estado actual si no viene en el form del modal (el modal de tareas no tiene selector de estado aún)

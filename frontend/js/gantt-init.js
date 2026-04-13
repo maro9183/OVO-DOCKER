@@ -808,6 +808,7 @@ window.GanttApp = (() => {
 
     return {
       id:           t.id || t.id_tarea,
+      id_proyecto:  t.id_proyecto,
       parent:       t.id_parent || t.parent || 0,
       text:         t.descripcion || t.tarea || "Tarea",
       start_date:   parseSafeDate(startStr) || new Date(),
