@@ -399,6 +399,9 @@ window.GanttApp = (() => {
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Progreso:</span> <span style="color:var(--indigo); font-weight:700">${Math.round((t.progress||0)*100)}%</span></div>
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Estado:</span> ${estadoBadge(t)}</div>
           <div><span style="color:var(--text-muted); width:125px; display:inline-block">Responsable:</span> ${resolveName(t.responsable)}</div>
+          <div style="margin:4px 0; border-top:1px dashed #333"></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Costo Estimado:</span> <span style="color:var(--indigo)">$${(t._costo || 0).toLocaleString()}</span></div>
+          <div><span style="color:var(--text-muted); width:125px; display:inline-block">Costo Real:</span> <span style="color:var(--btn-green-bg); font-weight:700">$${(t._costo_real || 0).toLocaleString()}</span></div>
         </div>
       </div>`;
     };
@@ -537,16 +540,17 @@ window.GanttApp = (() => {
             }
           });
 
-          // Mapear campos _estado/_tipo_dias del objeto gantt a columnas reales de la DB
+          // Mapear campos _estado/_tipo_dias/_costo_real del objeto gantt a columnas reales de la DB
           if (taskObj._estado  !== undefined) taskPayload.estado    = taskObj._estado;
           if (taskObj._tipo_dias !== undefined) taskPayload.tipo_dias = taskObj._tipo_dias;
+          if (taskObj._costo_real !== undefined) taskPayload.costo_real = taskObj._costo_real;
 
           // Guardia final: solo enviar campos que el backend acepta (espejo del UPDATE_WHITELIST)
           const BACKEND_WHITELIST = new Set([
             'id_proyecto','id_parent','id_subresp','id_resp','tarea','descripcion',
             'fecha_inicio','fecha_fin','fecha_inicio_proyectada','fecha_fin_proyectada',
             'fecha_real_iniciada','duration','fecha_completada','estado','responsable',
-            'avance','dependencias','costo_tarea','notificado','recursos','tipo_dias',
+            'avance','dependencias','costo_tarea','costo_real','notificado','recursos','tipo_dias',
             'auto_retrasada','es_compra','compraData'
           ]);
           Object.keys(taskPayload).forEach(k => { if (!BACKEND_WHITELIST.has(k)) delete taskPayload[k]; });
@@ -590,6 +594,7 @@ window.GanttApp = (() => {
           // Mapear campos _estado/_tipo_dias del objeto gantt a columnas reales de la DB
           if (taskObj._estado  !== undefined) extraFromObj.estado    = taskObj._estado;
           if (taskObj._tipo_dias !== undefined) extraFromObj.tipo_dias = taskObj._tipo_dias;
+          if (taskObj._costo_real !== undefined) extraFromObj.costo_real = taskObj._costo_real;
 
           Object.assign(taskPayload, extraFromObj);
 
@@ -598,7 +603,7 @@ window.GanttApp = (() => {
             'id_proyecto','id_parent','id_subresp','id_resp','tarea','descripcion',
             'fecha_inicio','fecha_fin','fecha_inicio_proyectada','fecha_fin_proyectada',
             'fecha_real_iniciada','duration','fecha_completada','estado','responsable',
-            'avance','dependencias','costo_tarea','notificado','recursos','tipo_dias',
+            'avance','dependencias','costo_tarea','costo_real','notificado','recursos','tipo_dias',
             'auto_retrasada','es_compra','compraData'
           ]);
           Object.keys(taskPayload).forEach(k => { if (!BACKEND_WHITELIST.has(k)) delete taskPayload[k]; });
@@ -835,6 +840,8 @@ window.GanttApp = (() => {
       _f_fin_proy:    t.fecha_fin_proyectada,
       _f_real_ini:    t.fecha_real_iniciada,
       _f_real_fin:    t.fecha_completada,
+      _costo:         parseFloat(t.costo_tarea) || 0,
+      _costo_real:    parseFloat(t.costo_real) || 0,
       _auto_retrasada: t.auto_retrasada || 0,
       // Datos extra de compra
       _compra: isPurchase ? {

@@ -694,6 +694,7 @@ window.UI = (() => {
     // Mapeo Estricto según Extracción de DOM
     f('field-descripcion', raw?.descripcion || ganttTask?.descripcion || ganttTask?.text || '');
     f('field-costo',       parseFloat(raw?.costo_tarea || ganttTask?.costo_tarea || 0));
+    f('field-costo-real',  parseFloat(raw?.costo_real || ganttTask?._costo_real || 0));
 
     // Fecha inicio (Baseline - Plan Original)
     // EXCLUSIVO de DB o alias persistente. NUNCA del start_date visual.
@@ -1016,6 +1017,7 @@ window.UI = (() => {
       fecha_inicio_proyectada: toIsoDate(document.getElementById('field-fecha-inicio-proyectada')?.value) || null,
       fecha_fin_proyectada:    toIsoDate(document.getElementById('field-fecha-fin-proyectada')?.value) || null,
       costo_tarea:         parseFloat(document.getElementById('field-costo').value) || 0,
+      costo_real:          parseFloat(document.getElementById('field-costo-real').value) || 0,
       responsable:         document.getElementById('field-responsable').value.trim() || null,
       recursos:            recIds.join(',') || null,
       tipo_dias:           tipoDias,
@@ -1070,6 +1072,7 @@ window.UI = (() => {
         gt.fecha_completada = data.fecha_completada;
         gt.fecha_inicio_proyectada = data.fecha_inicio_proyectada;
         gt.fecha_fin_proyectada = data.fecha_fin_proyectada;
+        gt._costo_real = data.costo_real;
 
         // DISPARAR DATA PROCESSOR (action: "update")
         gantt.updateTask(editingTaskId);
@@ -1093,6 +1096,7 @@ window.UI = (() => {
           dependencias: data.dependencias,
           es_compra: 0,
           costo_tarea: data.costo_tarea,
+          costo_real: data.costo_real,
           responsable: data.responsable,
           recursos: data.recursos,
           id_subresp: data.id_subresp,

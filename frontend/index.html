@@ -1093,10 +1093,18 @@
             </div>
           </div>
 
-          <!-- Costo Tarea -->
-          <div class="form-group col-span-2" id="group-tarea-costo">
-            <label class="form-label" for="field-costo">Costo General ($) *</label>
-            <input class="form-control" id="field-costo" type="number" min="0" step="0.01">
+          <!-- Finanzas: Costo Estimado vs Real -->
+          <div class="form-group col-span-2" id="group-tarea-finanzas">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label class="form-label" for="field-costo" style="font-size:11px; margin-bottom:2px">Costo Estimado ($) *</label>
+                <input class="form-control" id="field-costo" type="number" min="0" step="0.01" placeholder="0.00">
+              </div>
+              <div>
+                <label class="form-label" for="field-costo-real" style="font-size:11px; margin-bottom:2px; color:var(--btn-green-bg)">Costo Real ($)</label>
+                <input class="form-control" id="field-costo-real" type="number" min="0" step="0.01" placeholder="0.00">
+              </div>
+            </div>
           </div>
 
 

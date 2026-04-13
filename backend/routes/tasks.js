@@ -13,7 +13,7 @@ const TASK_COLUMNS = [
   'tarea', 'descripcion', 'fecha_inicio', 'fecha_fin', 
   'fecha_inicio_proyectada', 'fecha_fin_proyectada', 'fecha_real_iniciada',
   'duracion_dias', 'fecha_completada', 'estado', 'responsable', 
-  'avance', 'dependencias', 'costo_tarea', 'fecha_creacion', 
+  'avance', 'dependencias', 'costo_tarea', 'costo_real', 'fecha_creacion', 
   'notificado', 'recursos', 'tipo_dias', 'auto_retrasada', 'es_compra'
 ];
 
@@ -241,6 +241,7 @@ function mapTaskToDHTMLX(row) {
     dependencias:            row.dependencias || '',
     tipo_dias:               row.tipo_dias || 'calendario',
     costo_tarea:             row.costo_tarea || 0,
+    costo_real:              row.costo_real || 0,
     fecha_inicio:            start_date ? start_date.split(' ')[0] : null,
     fecha_inicio_proyectada: row.fecha_inicio_proyectada ? formatDate(row.fecha_inicio_proyectada) : null,
     fecha_fin_proyectada:    row.fecha_fin_proyectada ? formatDate(row.fecha_fin_proyectada) : null,
@@ -342,7 +343,7 @@ router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, 
     const nullableFields = [
         'id_proyecto', 'id_subresp', 'id_resp', 
         'fecha_inicio_proyectada', 'fecha_fin_proyectada', 'fecha_real_iniciada',
-        'fecha_fin', 'fecha_completada', 'costo_tarea'
+        'fecha_fin', 'fecha_completada', 'costo_tarea', 'costo_real'
     ];
     nullableFields.forEach(field => {
         if (req.body[field] === "") {
@@ -367,8 +368,8 @@ router.post('/', requirePermission('CREATE'), requireProjectAccess, async (req, 
     const fechaFinBase = formatDate(calcFechaFin(new Date(fecha_inicio), duracion_dias, tipo_dias));
     const isCompra = req.body.es_compra ? 1 : 0;
     const [result] = await conn.execute(
-      `INSERT INTO tareas (id_proyecto, id_parent, id_subresp, id_resp, tarea, descripcion, fecha_inicio, fecha_fin, fecha_inicio_proyectada, fecha_fin_proyectada, duracion_dias, estado, responsable, avance, tipo_dias, notificado, costo_tarea, es_compra, fecha_real_iniciada, fecha_completada, dependencias, recursos) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [id_proyecto, id_parent, id_subresp, id_resp, tarea, req.body.descripcion || null, fecha_inicio, fechaFinBase, fecha_inicio, fechaFinBase, duracion_dias, calcEstado(avance), req.body.responsable || null, avance, tipo_dias, req.body.notificado ? 1 : 0, req.body.costo_tarea || 0, isCompra, req.body.fecha_real_iniciada || null, req.body.fecha_completada || null, req.body.dependencias || null, req.body.recursos || null]
+      `INSERT INTO tareas (id_proyecto, id_parent, id_subresp, id_resp, tarea, descripcion, fecha_inicio, fecha_fin, fecha_inicio_proyectada, fecha_fin_proyectada, duracion_dias, estado, responsable, avance, tipo_dias, notificado, costo_tarea, costo_real, es_compra, fecha_real_iniciada, fecha_completada, dependencias, recursos) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [id_proyecto, id_parent, id_subresp, id_resp, tarea, req.body.descripcion || null, fecha_inicio, fechaFinBase, fecha_inicio, fechaFinBase, duracion_dias, calcEstado(avance), req.body.responsable || null, avance, tipo_dias, req.body.notificado ? 1 : 0, req.body.costo_tarea || 0, req.body.costo_real || 0, isCompra, req.body.fecha_real_iniciada || null, req.body.fecha_completada || null, req.body.dependencias || null, req.body.recursos || null]
     );
     const newTaskId = result.insertId;
     
@@ -437,7 +438,7 @@ router.put('/:id', requirePermission('UPDATE'), requireProjectAccess, async (req
     const nullableFields = [
         'id_proyecto', 'id_subresp', 'id_resp', 
         'fecha_inicio_proyectada', 'fecha_fin_proyectada', 'fecha_real_iniciada',
-        'fecha_fin', 'fecha_completada', 'costo_tarea'
+        'fecha_fin', 'fecha_completada', 'costo_tarea', 'costo_real'
     ];
     nullableFields.forEach(field => {
         if (req.body[field] === "") {
