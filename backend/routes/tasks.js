@@ -56,7 +56,7 @@ function parseCsvIds(val) {
 async function calcEffectiveStart(conn, tareaId, fecha_inicio, tipo_dias) {
   if (!tareaId) return { effectiveStart: fecha_inicio, fechaInicioProy: null };
   const [predRows] = await conn.execute(
-    `SELECT d.id_predecesora, t.id_tarea, t.es_compra, t.fecha_fin_proyectada,
+    `SELECT d.id_predecesora, t.id_tarea, t.es_compra, t.fecha_fin_proyectada, t.fecha_completada,
             c.fecha_arribo_necesaria, c.fecha_comprometida, c.fecha_entregado
      FROM dependencias d
      LEFT JOIN tareas t ON d.id_predecesora = t.id_tarea
@@ -71,7 +71,10 @@ async function calcEffectiveStart(conn, tareaId, fecha_inicio, tipo_dias) {
       const d2 = parseDate(row.fecha_comprometida) || new Date(0);
       const d3 = parseDate(row.fecha_entregado) || new Date(0);
       refDate = new Date(Math.max(d1, d2, d3));
-    } else { refDate = parseDate(row.fecha_fin_proyectada) || new Date(0); }
+    } else { 
+      // Priorizar la fecha completada (realidad). Si es null o vacía, usar la proyectada (teoría).
+      refDate = parseDate(row.fecha_completada || row.fecha_fin_proyectada) || new Date(0); 
+    }
     return refDate > max ? refDate : max;
   }, new Date(0));
   maxFin.setUTCDate(maxFin.getUTCDate() + 1);
