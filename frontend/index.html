@@ -843,9 +843,18 @@
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#8b5cf620">💰</div>
-          <div class="stat-info">
-            <div class="stat-label">COSTO TOTAL</div>
-            <div class="stat-value" id="stat-costo-total">$0</div>
+          <div class="stat-info" style="min-width:0">
+            <div class="stat-label">COSTOS</div>
+            <div style="display:flex; flex-direction:column; gap:1px; line-height:1.1;">
+              <div style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <span style="color:var(--text-dim); font-weight:500; font-size:10px;">Est:</span> 
+                <span id="stat-costo-total">$0</span>
+              </div>
+              <div style="font-size:13px; font-weight:800; color:var(--btn-green-bg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <span style="color:var(--text-dim); font-weight:500; font-size:10px;">Real:</span> 
+                <span id="stat-costo-real">$0</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="stat-card">

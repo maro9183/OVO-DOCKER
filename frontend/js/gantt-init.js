@@ -1063,7 +1063,7 @@ window.GanttApp = (() => {
 
         let totT = 0, doneT = 0, progT = 0, pendT = 0;
         let totS = 0, doneS = 0, progS = 0, pendS = 0;
-        let totalCosto = 0, aplicado = 0;
+        let totalCosto = 0, totalCostoReal = 0, aplicado = 0;
         let minDate = null, maxDate = null;
         let compraAtrasoProc = 0, compraAtrasoEnt = 0;
 
@@ -1101,7 +1101,9 @@ window.GanttApp = (() => {
 
           // Costos
           const costo = parseFloat(t._raw?.costo_tarea || t._costo || t._compra?.valor_unitario || 0);
+          const costoReal = parseFloat(t._costo_real || 0);
           totalCosto += costo;
+          totalCostoReal += costoReal;
           if (isDone) aplicado += costo;
 
           const tStart = t.start_date ? new Date(t.start_date) : null;
@@ -1188,8 +1190,17 @@ window.GanttApp = (() => {
         };
 
         // 1. Panel Superior (KPIs)
-        setDom('stat-total-t', totT);
-        setDom('stat-sub-total', totS);
+        // Totales de tareas (Denominador compartido por las 3 tarjetas de tareas)
+        setDom('stat-total-t-done', totT);
+        setDom('stat-total-t-prog', totT);
+        setDom('stat-total-t-pend', totT);
+
+        // Totales de subtareas (Denominador compartido)
+        setDom('stat-sub-total-done', totS);
+        setDom('stat-sub-total-prog', totS);
+        setDom('stat-sub-total-pend', totS);
+
+        // Valores de tareas
         setDom('stat-done', doneT);
         setDom('stat-done-pct', getPct(doneT, totT));
         setDom('stat-progress', progT);
@@ -1197,7 +1208,16 @@ window.GanttApp = (() => {
         setDom('stat-pending', pendT);
         setDom('stat-pending-pct', getPct(pendT, totT));
 
+        // Valores de subtareas
+        setDom('stat-sub-done', doneS);
+        setDom('stat-sub-done-pct', getPct(doneS, totS));
+        setDom('stat-sub-prog', progS);
+        setDom('stat-sub-progress-pct', getPct(progS, totS));
+        setDom('stat-sub-pend', pendS);
+        setDom('stat-sub-pending-pct', getPct(pendS, totS));
+
         setDom('stat-costo-total', fmtCur(totalCosto));
+        setDom('stat-costo-real',  fmtCur(totalCostoReal));
         setDom('stat-total-aplicado', fmtCur(aplicado));
         setDom('stat-aplicado-pct', getPct(aplicado, totalCosto));
 
