@@ -115,7 +115,9 @@ window.GanttApp = (() => {
   function configure() {
     gantt.config.show_grid = false;
     gantt.config.open_tree_initially = false;
-    gantt.plugins({ tooltip: true, marker: true });
+    gantt.plugins({ tooltip: true });
+
+
 
     gantt.config.date_format  = '%Y-%m-%d';
     gantt.config.xml_date     = '%Y-%m-%d %H:%i';
@@ -1299,10 +1301,82 @@ window.GanttApp = (() => {
     });
   }
 
+  function setupMarkerFallback() {
+    if (!gantt.addMarker) {
+      console.log("[GanttApp] Native marker plugin not found (GPL/Standard edition). Registering custom fallback...");
+      gantt._custom_markers = [];
+      gantt.addMarker = function(marker) {
+        const id = Math.random().toString(36).substring(2, 9);
+        marker.id = id;
+        gantt._custom_markers.push(marker);
+        gantt.renderMarkers();
+        return id;
+      };
+      gantt.getMarker = function(id) {
+        return gantt._custom_markers.find(m => m.id === id);
+      };
+      gantt.deleteMarker = function(id) {
+        gantt._custom_markers = gantt._custom_markers.filter(m => m.id !== id);
+        gantt.renderMarkers();
+      };
+      gantt.renderMarkers = function() {
+        if (!gantt.$task_data) return;
+        
+        // Remove previous custom markers
+        const existing = gantt.$task_data.querySelectorAll('.gantt_marker_custom');
+        existing.forEach(el => el.remove());
+        
+        // Render current custom markers
+        gantt._custom_markers.forEach(marker => {
+          const date = marker.start_date;
+          if (!date) return;
+          const left = gantt.posFromDate(date);
+          if (left === null || left === undefined || isNaN(left)) return;
+          
+          const markerEl = document.createElement('div');
+          markerEl.className = 'gantt_marker ' + (marker.css || '') + ' gantt_marker_custom';
+          markerEl.style.position = 'absolute';
+          markerEl.style.top = '0';
+          markerEl.style.bottom = '0';
+          markerEl.style.width = '2px';
+          markerEl.style.left = left + 'px';
+          markerEl.style.zIndex = '5';
+          
+          if (marker.text) {
+            const contentEl = document.createElement('div');
+            contentEl.className = 'gantt_marker_content';
+            contentEl.textContent = marker.text;
+            contentEl.style.position = 'absolute';
+            contentEl.style.top = '10px';
+            contentEl.style.left = '2px';
+            contentEl.style.whiteSpace = 'nowrap';
+            contentEl.style.boxSizing = 'border-box';
+            contentEl.style.overflow = 'hidden';
+            contentEl.style.fontSize = '11px';
+            if (marker.title) {
+              contentEl.title = marker.title;
+            }
+            markerEl.appendChild(contentEl);
+          }
+          
+          gantt.$task_data.appendChild(markerEl);
+        });
+      };
+      
+      // Update markers position when gantt renders/scrolls
+      gantt.attachEvent("onGanttRender", function() {
+        gantt.renderMarkers();
+      });
+    }
+  }
+
   /* ── Public API ──────────────────────────────────────────── */
   function init() {
     configure();
     gantt.init('gantt_here');
+
+    // Setup custom markers if native plugin not loaded (after gantt.init to avoid obsolete warning)
+    setupMarkerFallback();
 
     // Markers
     addMarkers();

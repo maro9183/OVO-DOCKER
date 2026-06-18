@@ -250,3 +250,12 @@ INSERT IGNORE INTO usuarios (id_usuario, email, password_hash, nombre, permisos,
 (3, 'GMorano@ovobrand.com.ar', '$2b$10$niet03sbVulknGemlyN1f.EKAGAPwXhfsldbx2Mok5u1Uyj0pAiGy', 'GermanMorano', 'ALL', 'ALL', 1, '2026-04-02 19:19:49', 0);
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- --------------------------------------------------------
+-- Acceso Externo: Usuario de Lectura para Power BI 
+-- Forzamos mysql_native_password por compatibilidad del driver
+-- --------------------------------------------------------
+CREATE USER IF NOT EXISTS 'powerbi'@'%' IDENTIFIED WITH mysql_native_password BY 'powerbi_2026';
+GRANT SELECT ON ovo2.* TO 'powerbi'@'%';
+FLUSH PRIVILEGES;
+
